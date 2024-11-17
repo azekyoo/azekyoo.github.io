@@ -139,9 +139,11 @@ body {
 @media screen and (max-width: 768px) {
   .dflex {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 7px; /* Space between items */
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0px; /* Space between items */
       padding: 0 20px; /* Add space on the left and right borders */
+      grid-row-gap: 33px; /* Space between rows */
+      grid-column-gap: 70px; /* Space between columns */
   }
   .dflex a {
       margin: 0 auto;
