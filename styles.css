@@ -132,40 +132,22 @@ body {
 
 
 /* Responsive layout for small screens */
-/* @media screen and (max-width: 768px) {
-    .dflex {
-        grid-template-columns: repeat(4, 1fr);
-        display: grid;
-    }
-    .dflex a {
-        margin: 0 auto;
-    }
-} */
+/* Default Layout */
+/* Default Layout (Horizontal) */
 
-@media (max-width: 768px) {
-  /* Adjust icon sizes for mobile */
-  .dflex a img {
-      width: 3em; /* Smaller size for icons */
-  }
-
-  /* Add padding/margin for better spacing */
-  .frame {
-      margin: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  /* Stack icons vertically for very small screens */
+/* Mobile Layout (Vertical) */
+@media screen and (max-width: 768px) {
   .dflex {
-      flex-direction: column;
-      align-items: center;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px; /* Space between items */
+      padding: 0 20px; /* Add space on the left and right borders */
   }
-
-  /* Further reduce icon size */
-  .dflex a img {
-      width: 2.5em;
+  .dflex a {
+      margin: 0 auto;
   }
 }
+
 
 /* BUTTONS */
 
