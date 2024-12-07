@@ -257,6 +257,60 @@
         anime(animeOpts);
     }
 
+    // Hide the slide's name after some time
+    function hideSlideName(slide) {
+        var name = slide.querySelector('.slide__name');
+        setTimeout(function () {
+            anime({
+                targets: name,
+                duration: 400,
+                easing: 'easeOutCubic',
+                opacity: 0,
+                translateY: -50
+            });
+        }, 2000); // 2 seconds delay
+    }
+
+    function toggleSlide(dir, delay) {
+        var slide = DOM.slides[currentRoom],
+            // Slide's name.
+            name = slide.querySelector('.slide__name'),
+            // Slide's title and date elements.
+            title = slide.querySelector('.slide__title'),
+            date = slide.querySelector('.slide__date');
+
+        delay = delay !== undefined ? delay : 0;
+
+        anime.remove([name, title, date]);
+        var animeOpts = {
+            targets: [name, title, date],
+            duration: dir === 'in' ? 400 : 400,
+            delay: function (t, i, c) {
+                return delay + 75 + i * 75;
+            },
+            easing: [0.25, 0.1, 0.25, 1],
+            opacity: {
+                value: dir === 'in' ? [0, 1] : [1, 0],
+                duration: dir === 'in' ? 550 : 250
+            },
+            translateY: function (t, i) {
+                return dir === 'in' ? [150, 0] : [0, -150];
+            }
+        };
+        if (dir === 'in') {
+            animeOpts.begin = function () {
+                slide.classList.add('slide--current');
+            };
+            hideSlideName(slide);
+        } else {
+            animeOpts.complete = function () {
+                slide.classList.remove('slide--current');
+            };
+        }
+        anime(animeOpts);
+    }
+    // Ends of the code to hide slide's name after some time
+
     function showSlide(delay) {
         toggleSlide('in', delay);
     }
