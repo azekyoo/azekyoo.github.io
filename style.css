@@ -234,13 +234,19 @@ body {
     background-size: 500% 500%;
     animation: gradientAnimation 7s ease infinite;
     min-height: 100vh;
+    max-height: 100vh;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    overflow: hidden;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+    overflow: hidden;
+    height: 100%;
 }
 
 @keyframes gradientAnimation {
