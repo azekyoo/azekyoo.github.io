@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Information</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="../assets/purplespin.gif">
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🕵️ Complete User Information</h1>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Gathering information...</p>
+        </div>
+        
+        <div class="info-grid" id="infoGrid" style="display: none;">
+            <!-- Browser Information -->
+            <div class="info-section">
+                <h2>🌐 Browser Information</h2>
+                <div class="info-content" id="browserInfo">
+                    <div class="info-item">
+                        <span class="label">Browser:</span>
+                        <span class="value" id="browserName">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Version:</span>
+                        <span class="value" id="browserVersion">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Engine:</span>
+                        <span class="value" id="browserEngine">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">User Agent:</span>
+                        <span class="value" id="userAgent">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Languages:</span>
+                        <span class="value" id="languages">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Cookies Enabled:</span>
+                        <span class="value" id="cookiesEnabled">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Do Not Track:</span>
+                        <span class="value" id="doNotTrack">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Information -->
+            <div class="info-section">
+                <h2>💻 System Information</h2>
+                <div class="info-content" id="systemInfo">
+                    <div class="info-item">
+                        <span class="label">Operating System:</span>
+                        <span class="value" id="operatingSystem">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Platform:</span>
+                        <span class="value" id="platform">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Architecture:</span>
+                        <span class="value" id="architecture">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">CPU Cores:</span>
+                        <span class="value" id="cpuCores">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Device Memory:</span>
+                        <span class="value" id="deviceMemory">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Max Touch Points:</span>
+                        <span class="value" id="maxTouchPoints">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Information -->
+            <div class="info-section">
+                <h2>🌍 Network & Location</h2>
+                <div class="info-content" id="networkInfo">
+                    <div class="info-item">
+                        <span class="label">IP Address:</span>
+                        <span class="value" id="ipAddress">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">ISP:</span>
+                        <span class="value" id="isp">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Location:</span>
+                        <span class="value" id="location">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Online Status:</span>
+                        <span class="value" id="onlineStatus">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Connection Type:</span>
+                        <span class="value" id="connectionType">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Downlink Speed:</span>
+                        <span class="value" id="downlink">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Timezone:</span>
+                        <span class="value" id="timezone">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Information -->
+            <div class="info-section">
+                <h2>⏰ Time Information</h2>
+                <div class="info-content" id="timeInfo">
+                    <div class="info-item">
+                        <span class="label">Current Time:</span>
+                        <span class="value" id="currentTime">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">UTC Time:</span>
+                        <span class="value" id="utcTime">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Timezone Offset:</span>
+                        <span class="value" id="timezoneOffset">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Locale:</span>
+                        <span class="value" id="locale">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hardware & Sensors -->
+            <div class="info-section">
+                <h2>⚙️ Hardware & Sensors</h2>
+                <div class="info-content" id="hardwareInfo">
+                    <div class="info-item">
+                        <span class="label">Battery Status:</span>
+                        <span class="value" id="batteryStatus">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Device Orientation:</span>
+                        <span class="value" id="deviceOrientation">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Gamepad Connected:</span>
+                        <span class="value" id="gamepadConnected">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">WebGL Renderer:</span>
+                        <span class="value" id="webglRenderer">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">WebGL Vendor:</span>
+                        <span class="value" id="webglVendor">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Storage & Features -->
+            <div class="info-section">
+                <h2>💾 Storage & Features</h2>
+                <div class="info-content" id="storageInfo">
+                    <div class="info-item">
+                        <span class="label">Local Storage:</span>
+                        <span class="value" id="localStorage">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Session Storage:</span>
+                        <span class="value" id="sessionStorage">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">IndexedDB:</span>
+                        <span class="value" id="indexedDB">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">WebRTC:</span>
+                        <span class="value" id="webRTC">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Service Workers:</span>
+                        <span class="value" id="serviceWorkers">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Push Notifications:</span>
+                        <span class="value" id="pushNotifications">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security & Privacy -->
+            <div class="info-section">
+                <h2>🔒 Security & Privacy</h2>
+                <div class="info-content" id="securityInfo">
+                    <div class="info-item">
+                        <span class="label">HTTPS:</span>
+                        <span class="value" id="https">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Referrer:</span>
+                        <span class="value" id="referrer">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Java Enabled:</span>
+                        <span class="value" id="javaEnabled">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Adobe Flash:</span>
+                        <span class="value" id="adobeFlash">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Ad Blocker:</span>
+                        <span class="value" id="adBlocker">Checking...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screen & Display Information -->
+            <div class="info-section">
+                <h2>📺 Screen & Display</h2>
+                <div class="info-content" id="screenInfo">
+                    <div class="info-item">
+                        <span class="label">Screen Resolution:</span>
+                        <span class="value" id="screenResolution">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Available Screen:</span>
+                        <span class="value" id="availableScreen">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Window Size:</span>
+                        <span class="value" id="windowSize">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Viewport:</span>
+                        <span class="value" id="viewport">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Color Depth:</span>
+                        <span class="value" id="colorDepth">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Pixel Density:</span>
+                        <span class="value" id="pixelDensity">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Orientation:</span>
+                        <span class="value" id="orientation">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="refresh-btn" onclick="location.reload()">
+            🔄 Refresh Information
+        </div>
+    </div>
+</body>
+</html>
