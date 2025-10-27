@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Chat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <script src="https://js.puter.com/v2/"></script>
+
+    <main class="app">
+        <section class="chat">
+            <header class="chat__header">
+                <div class="chat__brand">
+                    <span class="chat__logo" aria-hidden="true">💬</span>
+                    <h1 class="chat__title">AI Chat</h1>
+                    <span class="chat__badge" title="Model in use">gpt-5-nano</span>
+                </div>
+                <div class="chat__actions" aria-label="Chat actions">
+                    <button id="clear-chat" class="icon-btn" title="Clear chat" aria-label="Clear chat" type="button">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                            <path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-4h6l1 1h4v2H2V4h4l1-1z"/>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <div id="messages" class="chat__messages" aria-live="polite" aria-label="Chat messages"></div>
+
+            <form id="chat-form" class="chat__composer" autocomplete="off">
+                <textarea id="user-input" class="composer__input" placeholder="Message AI..." rows="1" spellcheck="true" aria-label="Type your message" required></textarea>
+                <div class="composer__actions">
+                    <button id="send-btn" class="composer__send" type="submit" title="Send" aria-label="Send">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
