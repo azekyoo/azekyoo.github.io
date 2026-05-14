@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eyes</title>
+<link rel="icon" type="image/x-icon" href="../assets/purplespin.gif">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
+canvas { display: block; width: 100%; height: 100%; }
+#vid { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<video id="vid" autoplay playsinline muted></video>
+<script type="module">
+import { FaceDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+const mouse = { x: null, y: null, lastMove: 0 };
+window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.lastMove = performance.now(); });
+
+const face = { x: null, y: null, lastSeen: 0 };
+
+// ── Shared gaze ──
+const gaze = {
+  px: 0, py: 0, vx: 0, vy: 0, tx: 0, ty: 0,
+  wPhX: 0, wPhY: Math.PI * 0.6,
+  wSpX: 0.000118, wSpY: 0.000079,
+  flickActive: false,
+  fOffX: 0, fOffY: 0, fVX: 0, fVY: 0,
+  fTX: 0, fTY: 0, fReturnAt: 0,
+  nextFlick: 5000 + Math.random() * 7000,
+};
+
+// ── Shared blink ──
+const blink = {
+  state: 0, active: false, t0: 0, dur: 110,
+  nextBlink: 3000 + Math.random() * 4000,
+  doDouble: false, gap: 0,
+};
+
+let breathPhase = 0;
+let now = 0;
+function easeInOut(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+// ── Rising energy fire ──
+const FIRE_COUNT = 130;
+
+function randHue() {
+  const r = Math.random();
+  if (r < 0.68) return 320 + Math.random() * 50;  // crimson/magenta (main)
+  if (r < 0.88) return 195 + Math.random() * 45;  // cyan/blue
+  return 265 + Math.random() * 35;                 // violet bridge
+}
+
+function mkFire() {
+  return {
+    ox:      (Math.random() - 0.5) * 120,
+    life:    Math.random(),
+    lifeSpd: 0.00040 + Math.random() * 0.00085,
+    maxH:    55 + Math.random() * 250,
+    size:    0.7 + Math.random() * 4.2,
+    wAmp:    5 + Math.random() * 22,
+    wFreq:   2 + Math.random() * 6,
+    wPh:     Math.random() * Math.PI * 2,
+    hue:     randHue(),
+    streak:  Math.random() < 0.18,
+  };
+}
+
+function resetFire(p) {
+  p.ox      = (Math.random() - 0.5) * 120;
+  p.life    = 0;
+  p.lifeSpd = 0.00040 + Math.random() * 0.00085;
+  p.maxH    = 55 + Math.random() * 250;
+  p.size    = 0.7 + Math.random() * 4.2;
+  p.wAmp    = 5 + Math.random() * 22;
+  p.wFreq   = 2 + Math.random() * 6;
+  p.wPh     = Math.random() * Math.PI * 2;
+  p.hue     = randHue();
+  p.streak  = Math.random() < 0.18;
+}
+
+const fire = [
+  Array.from({length: FIRE_COUNT}, mkFire),
+  Array.from({length: FIRE_COUNT}, mkFire),
+];
+
+function drawFire(eyeIdx, ex, ey, dt) {
+  const baseY = ey + EYE_MID_Y;
+  fire[eyeIdx].forEach(p => {
+    p.life += p.lifeSpd * dt;
+    if (p.life >= 1) resetFire(p);
+    const t = p.life;
+    const alpha = (t < 0.12 ? t / 0.12 : Math.pow(1 - t, 1.6)) * 0.88;
+    if (alpha < 0.012) return;
+    const turbX = Math.sin(p.wPh + t * p.wFreq * Math.PI) * p.wAmp * Math.sin(t * Math.PI);
+    const px = ex + p.ox + turbX;
+    const py = baseY - t * p.maxH;
+    const sz = p.size * Math.max(0.1, 1 - t * 0.58);
+    const sat = Math.round(55 + t * 45);
+    const lit = Math.round(82 - t * 42);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = `hsl(${p.hue},${sat}%,${lit}%)`;
+    ctx.shadowColor = `hsl(${p.hue},100%,68%)`;
+    ctx.shadowBlur  = 14 + (1 - t) * 10;
+    ctx.beginPath();
+    if (p.streak) {
+      ctx.ellipse(px, py, sz * 0.45, sz * (2.5 + t * 2), 0, 0, Math.PI * 2);
+    } else {
+      ctx.arc(px, py, sz, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ─────────────────────────────────
+// Eye shape — Itachi Uchiha.
+// Outer corner sharply elevated. Inner corner deeply dropped.
+// Diagonal slash with graceful bezier arch.
+// ─────────────────────────────────
+const W2 = 114;
+const H2 = 32;
+
+const outerX =  W2,  outerY = -30;  // outer — high sharp upswing
+const innerX = -W2,  innerY =  22;  // inner — deeply dropped, teardrop zone
+
+const upPeakY = -48;  // upper lid arch control Y
+const loPeakY =  30;  // lower lid arch control Y
+
+const EYE_MID_Y = -8;  // iris center — large iris fills the slit
+
+function eyePath(bs) {
+  const u = bs * H2 * 1.8;
+  const l = -bs * H2 * 0.42;
+  const p = new Path2D();
+  p.moveTo(outerX, outerY + u);
+  p.bezierCurveTo( 98, upPeakY + u,  -92, upPeakY + u,  innerX, innerY + u);
+  p.bezierCurveTo(-84, loPeakY + l,   84, loPeakY + l,  outerX, outerY + l);
+  p.closePath();
+  return p;
+}
+
+function upperLid(bs) {
+  const u = bs * H2 * 1.8;
+  const p = new Path2D();
+  p.moveTo(outerX, outerY + u);
+  p.bezierCurveTo(98, upPeakY + u, -92, upPeakY + u, innerX, innerY + u);
+  return p;
+}
+
+function lowerLid(bs) {
+  const l = -bs * H2 * 0.42;
+  const p = new Path2D();
+  p.moveTo(outerX, outerY + l);
+  p.bezierCurveTo(84, loPeakY + l, -84, loPeakY + l, innerX, innerY + l);
+  return p;
+}
+
+const GAZE_X = 22, GAZE_Y = 8;
+const IRIS_R = 24;
+
+function updateGaze(dt, now) {
+  const hasFace = face.x !== null && (now - face.lastSeen) < 2000;
+  const idle = !hasFace && (!mouse.x || (now - mouse.lastMove) > 2800);
+  if (idle) {
+    gaze.wPhX += gaze.wSpX * dt;
+    gaze.wPhY += gaze.wSpY * dt;
+    const wx = Math.sin(gaze.wPhX) * GAZE_X * 0.6;
+    const wy = Math.sin(gaze.wPhY) * GAZE_Y * 0.5;
+    if (!gaze.flickActive && now > gaze.nextFlick) {
+      gaze.flickActive = true;
+      gaze.fTX = (Math.random() - 0.5) * GAZE_X * 1.4;
+      gaze.fTY = (Math.random() - 0.5) * GAZE_Y * 1.1;
+      gaze.fReturnAt = now + 800 + Math.random() * 1600;
+      gaze.nextFlick = now + 7000 + Math.random() * 10000;
+    }
+    if (gaze.flickActive) {
+      const tgt = now < gaze.fReturnAt ? {x:gaze.fTX,y:gaze.fTY} : {x:0,y:0};
+      const sp = now < gaze.fReturnAt ? 0.17 : 0.08;
+      gaze.fVX = gaze.fVX*0.72 + (tgt.x-gaze.fOffX)*sp;
+      gaze.fVY = gaze.fVY*0.72 + (tgt.y-gaze.fOffY)*sp;
+      gaze.fOffX += gaze.fVX; gaze.fOffY += gaze.fVY;
+      if (now > gaze.fReturnAt && Math.hypot(gaze.fOffX,gaze.fOffY) < 0.4) gaze.flickActive = false;
+    } else { gaze.fVX*=0.88; gaze.fVY*=0.88; gaze.fOffX+=gaze.fVX; gaze.fOffY+=gaze.fVY; }
+    gaze.tx = wx + gaze.fOffX; gaze.ty = wy + gaze.fOffY;
+  } else {
+    const cx = W/2, cy = H/2;
+    const tx = hasFace ? face.x : mouse.x;
+    const ty = hasFace ? face.y : mouse.y;
+    const ang = Math.atan2(ty - cy, tx - cx);
+    const t = Math.pow(Math.min(1, Math.hypot(tx - cx, ty - cy) / 360), 0.60);
+    gaze.tx = Math.cos(ang) * GAZE_X * t;
+    gaze.ty = Math.sin(ang) * GAZE_Y * t;
+    gaze.fOffX *= 0.88; gaze.fOffY *= 0.88;
+  }
+  const sp = idle ? 0.044 : 0.092, dp = idle ? 0.87 : 0.74;
+  gaze.vx = gaze.vx*dp + (gaze.tx-gaze.px)*sp;
+  gaze.vy = gaze.vy*dp + (gaze.ty-gaze.py)*sp;
+  gaze.px += gaze.vx; gaze.py += gaze.vy;
+}
+
+function updateBlink(now) {
+  if (!blink.active && now > blink.nextBlink) {
+    blink.active=true; blink.t0=now;
+    blink.doDouble=Math.random()<0.20;
+    blink.gap=170+Math.random()*130;
+  }
+  if (!blink.active) return;
+  const e=now-blink.t0, h=blink.dur/2, full=blink.dur;
+  const full2=blink.doDouble?full+blink.gap+full:full;
+  if      (e<h)         blink.state=easeInOut(e/h);
+  else if (e<full)      blink.state=easeInOut(1-(e-h)/h);
+  else if (!blink.doDouble||e>=full2) {
+    blink.state=0;
+    if(e>=full2){blink.active=false;blink.nextBlink=now+2500+Math.random()*5000;}
+  } else {
+    const e2=e-full-blink.gap;
+    if(e2<0) blink.state=0;
+    else if(e2<h) blink.state=easeInOut(e2/h);
+    else blink.state=easeInOut(1-(e2-h)/h);
+  }
+}
+
+function drawEye(cx, cy, mirror) {
+  const bs  = blink.state;
+  const br  = Math.sin(breathPhase);
+  const midY = EYE_MID_Y;
+  const ix = gaze.px * mirror;
+  const iy = midY + gaze.py;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(mirror, 1);
+
+  // ── Soft base glow — eye glows with energy ──
+  const ab = 0.045 + 0.022 * br;
+  const hue = Math.round(295 + Math.sin(now * 0.00038) * 35);
+  const aura = ctx.createRadialGradient(0, midY, W2*0.05, 0, midY, W2*1.8);
+  aura.addColorStop(0,    `hsla(${hue},85%,78%,${ab*3.0})`);
+  aura.addColorStop(0.22, `hsla(${hue},80%,65%,${ab*1.1})`);
+  aura.addColorStop(0.55, `hsla(${hue},75%,55%,${ab*0.20})`);
+  aura.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.shadowColor = `hsl(${hue},100%,65%)`;
+  ctx.shadowBlur  = 28;
+  ctx.beginPath();
+  ctx.ellipse(0, midY, W2*1.9, H2*5.0, 0, 0, Math.PI*2);
+  ctx.fillStyle = aura;
+  ctx.fill();
+  ctx.restore();
+
+  // ── Sclera — white fill clipped to eye slit ──
+  ctx.save();
+  ctx.clip(eyePath(bs));
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-W2-12, -H2*3, (W2+12)*2, H2*7);
+
+  // ── Iris ──
+  const irisHue = Math.round(290 + Math.sin(now * 0.00025) * 20);
+
+  ctx.beginPath();
+  ctx.arc(ix, iy, IRIS_R, 0, Math.PI*2);
+  ctx.fillStyle = '#06000a';
+  ctx.fill();
+
+  // Colored ring
+  const irisRing = ctx.createRadialGradient(ix, iy, IRIS_R*0.30, ix, iy, IRIS_R);
+  irisRing.addColorStop(0,    'rgba(0,0,0,0)');
+  irisRing.addColorStop(0.42, `hsla(${irisHue},85%,18%,0)`);
+  irisRing.addColorStop(0.55, `hsla(${irisHue},95%,42%,0.95)`);
+  irisRing.addColorStop(0.75, `hsla(${irisHue},80%,28%,0.70)`);
+  irisRing.addColorStop(1,    'rgba(0,0,0,0.92)');
+  ctx.beginPath();
+  ctx.arc(ix, iy, IRIS_R, 0, Math.PI*2);
+  ctx.fillStyle = irisRing;
+  ctx.fill();
+
+  // Iris edge glow
+  ctx.save();
+  ctx.shadowColor = `hsl(${irisHue},100%,55%)`;
+  ctx.shadowBlur  = 10;
+  ctx.beginPath();
+  ctx.arc(ix, iy, IRIS_R - 0.5, 0, Math.PI*2);
+  ctx.strokeStyle = `hsla(${irisHue},90%,60%,0.45)`;
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  // Pupil
+  ctx.beginPath();
+  ctx.arc(ix, iy, IRIS_R * 0.40, 0, Math.PI*2);
+  ctx.fillStyle = '#000';
+  ctx.fill();
+
+  // Lid shadow + reflection clipped to iris
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(ix, iy, IRIS_R, 0, Math.PI*2);
+  ctx.clip();
+  const lidShadow = ctx.createLinearGradient(ix, iy - IRIS_R, ix, iy + IRIS_R * 0.3);
+  lidShadow.addColorStop(0,   'rgba(0,0,0,0.55)');
+  lidShadow.addColorStop(0.4, 'rgba(0,0,0,0)');
+  ctx.fillStyle = lidShadow;
+  ctx.fillRect(ix - IRIS_R, iy - IRIS_R, IRIS_R*2, IRIS_R*2);
+
+  const hl = ctx.createRadialGradient(
+    ix - IRIS_R*0.20, iy - IRIS_R*0.28, 0,
+    ix - IRIS_R*0.20, iy - IRIS_R*0.28, IRIS_R*0.65
+  );
+  hl.addColorStop(0,   'rgba(255,255,255,0.75)');
+  hl.addColorStop(0.5, 'rgba(255,255,255,0.18)');
+  hl.addColorStop(1,   'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  ctx.fillRect(ix - IRIS_R, iy - IRIS_R, IRIS_R*2, IRIS_R*2);
+  ctx.restore();
+
+  // Sharp primary specular
+  ctx.beginPath();
+  ctx.arc(ix - IRIS_R*0.18, iy - IRIS_R*0.40, IRIS_R*0.22, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.96)';
+  ctx.fill();
+
+  // Small secondary dot (lower-right)
+  ctx.beginPath();
+  ctx.arc(ix + IRIS_R*0.35, iy + IRIS_R*0.14, IRIS_R*0.11, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.60)';
+  ctx.fill();
+
+  ctx.restore(); // sclera clip
+
+  // ── Lower lid — sharp clean line ──
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  ctx.stroke(lowerLid(bs));
+  ctx.restore();
+
+  // ── Upper lid — thick flat black bar + crisp white edge ──
+  ctx.save();
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 20;
+  ctx.lineCap = 'round';
+  ctx.stroke(upperLid(bs));
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.94)';
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  ctx.stroke(upperLid(bs));
+  ctx.restore();
+
+  // ── Outer corner lash spikes ──
+  const lashSpikes = [
+    { len: 28, angle: -0.52, w: 4.5 },
+    { len: 22, angle: -0.16, w: 3.5 },
+    { len: 16, angle:  0.20, w: 2.8 },
+    { len: 32, angle: -0.78, w: 3.0 },
+  ];
+  lashSpikes.forEach(({ len, angle, w }) => {
+    const lx = outerX + Math.cos(angle) * len;
+    const ly = outerY + Math.sin(angle) * len;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = w + 1;
+    ctx.beginPath();
+    ctx.moveTo(outerX - 3, outerY);
+    ctx.lineTo(lx, ly);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.82)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // ── Itachi under-eye marks ──
+  ctx.save();
+  ctx.lineCap = 'round';
+  [
+    { x1: -100, y1: 27, x2: -97, y2: 72, w: 4.0 },
+    {  x1: -84, y1: 25, x2: -81, y2: 63, w: 2.8 },
+  ].forEach(({ x1, y1, x2, y2, w }) => {
+    ctx.strokeStyle = 'rgba(18,0,0,0.88)';
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  });
+  ctx.restore();
+
+  ctx.restore(); // translate+scale
+}
+
+function draw(dt) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  const cx = W/2, cy = H/2;
+
+  drawFire(0, cx + 195, cy, dt);
+  drawFire(1, cx - 195, cy, dt);
+
+  drawEye(cx + 195, cy,  1);
+  drawEye(cx - 195, cy, -1);
+
+  // Vignette
+  const vig = ctx.createRadialGradient(cx, cy, H*0.04, cx, cy, H*0.70);
+  vig.addColorStop(0,   'rgba(0,0,0,0)');
+  vig.addColorStop(0.4, 'rgba(0,0,0,0.06)');
+  vig.addColorStop(1,   'rgba(0,0,0,0.97)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+}
+
+let last = performance.now();
+function frame(ts) {
+  const dt = Math.min(ts-last, 50); last = ts; now = ts;
+  breathPhase += 0.00050*dt;
+  updateGaze(dt, now);
+  updateBlink(now);
+  draw(dt);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+async function initFaceDetector() {
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  const detector = await FaceDetector.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    minDetectionConfidence: 0.5,
+  });
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  const vid = document.getElementById('vid');
+  vid.srcObject = stream;
+  await new Promise(r => vid.addEventListener('loadeddata', r, { once: true }));
+  let lastVideoTime = -1;
+  function loop() {
+    if (vid.currentTime !== lastVideoTime) {
+      lastVideoTime = vid.currentTime;
+      const result = detector.detectForVideo(vid, performance.now());
+      if (result.detections.length > 0) {
+        const b = result.detections[0].boundingBox;
+        const fcx = (b.originX + b.width  / 2) / vid.videoWidth;
+        const fcy = (b.originY + b.height / 2) / vid.videoHeight;
+        face.x = (1 - fcx) * W;  // mirror X so moving right feels natural
+        face.y = fcy * H;
+        face.lastSeen = performance.now();
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+initFaceDetector().catch(() => {});
+</script>
+</body>
+</html>
