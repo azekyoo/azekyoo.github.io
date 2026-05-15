@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaze</title>
+<link rel="icon" type="image/x-icon" href="../assets/purplespin.gif">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
+canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script>
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// ── App state ──
+let appState = 'loading'; // loading | calibrating | tracking
+let now = 0;
+
+// ── Cursor ──
+const cur = { x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0, sx: 0, sy: 0 };
+
+// ── Calibration ──
+const CAL_PTS = [
+  { x: 0.5,  y: 0.5  },  // center
+  { x: 0.1,  y: 0.1  },  // top-left
+  { x: 0.9,  y: 0.1  },  // top-right
+  { x: 0.9,  y: 0.9  },  // bottom-right
+  { x: 0.1,  y: 0.9  },  // bottom-left
+];
+const CAL_FRAMES_PER_PT = 25;
+const CAL_SETTLE = 8;  // frames to wait after dot appears before collecting (~800ms)
+let calIdx    = 0;
+let calFrames = 0;
+let calSettle = CAL_SETTLE;
+let calAccum  = { gx: 0, gy: 0 };
+let calData   = []; // {gx, gy} averages per point
+
+// ── Affine transform: screen = A * [gx, gy, 1]^T ──
+let affine = null;
+
+function mat3inv(m) {
+  const [a,b,c,d,e,f,g,h,k] = m;
+  const det = a*(e*k-f*h) - b*(d*k-f*g) + c*(d*h-e*g);
+  if (Math.abs(det) < 1e-12) return null;
+  const i = 1/det;
+  return [
+     (e*k-f*h)*i, -(b*k-c*h)*i,  (b*f-c*e)*i,
+    -(d*k-f*g)*i,  (a*k-c*g)*i, -(a*f-c*d)*i,
+     (d*h-e*g)*i, -(a*h-b*g)*i,  (a*e-b*d)*i,
+  ];
+}
+
+function computeAffine() {
+  const n   = calData.length;
+  let AtA   = new Array(9).fill(0);
+  let AtBx  = [0, 0, 0];
+  let AtBy  = [0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    const { gx, gy } = calData[i];
+    const sx = CAL_PTS[i].x * W;
+    const sy = CAL_PTS[i].y * H;
+    const row = [gx, gy, 1];
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) AtA[r*3+c] += row[r]*row[c];
+      AtBx[r] += row[r] * sx;
+      AtBy[r] += row[r] * sy;
+    }
+  }
+  const inv = mat3inv(AtA);
+  if (!inv) return false;
+  const mul = (row, v) => row[0]*v[0] + row[1]*v[1] + row[2]*v[2];
+  affine = {
+    ax: mul([inv[0],inv[1],inv[2]], AtBx), bx: mul([inv[3],inv[4],inv[5]], AtBx), cx: mul([inv[6],inv[7],inv[8]], AtBx),
+    ay: mul([inv[0],inv[1],inv[2]], AtBy), by: mul([inv[3],inv[4],inv[5]], AtBy), cy: mul([inv[6],inv[7],inv[8]], AtBy),
+  };
+  return true;
+}
+
+function gazeToScreen(gx, gy) {
+  return {
+    x: Math.max(0, Math.min(W, affine.ax*gx + affine.bx*gy + affine.cx)),
+    y: Math.max(0, Math.min(H, affine.ay*gx + affine.by*gy + affine.cy)),
+  };
+}
+
+function startCal() {
+  appState = 'calibrating';
+  calIdx = 0; calFrames = 0; calSettle = CAL_SETTLE;
+  calAccum = { gx: 0, gy: 0 };
+  calData = []; affine = null;
+  cur.x = cur.tx = W/2; cur.y = cur.ty = H/2;
+  cur.vx = cur.vy = 0;
+}
+
+document.addEventListener('keydown', e => { if (e.code === 'KeyR') startCal(); });
+
+// ── Gaze targets ──
+const MAX_TARGETS = 4;
+let targets = [];
+let score = 0;
+
+function mkTarget() {
+  const margin = 0.13;
+  return {
+    x: (margin + Math.random() * (1 - margin*2)) * W,
+    y: (margin + Math.random() * (1 - margin*2)) * H,
+    r: 58 + Math.random() * 20,
+    hue: Math.random() * 360,
+    dwell: 0,
+    popping: false,
+    popT: 0,
+  };
+}
+
+function spawnTargets() {
+  targets = [];
+  for (let i = 0; i < MAX_TARGETS; i++) targets.push(mkTarget());
+}
+
+function updateTargets(dt) {
+  const cx = cur.x, cy = cur.y;
+  targets.forEach((t, i) => {
+    if (t.popping) {
+      t.popT += dt / 380;
+      if (t.popT >= 1) targets[i] = mkTarget();
+      return;
+    }
+    const inside = Math.hypot(cx - t.x, cy - t.y) < t.r + 12;
+    if (inside) {
+      t.dwell += dt / 900;
+      if (t.dwell >= 1) { t.dwell = 1; t.popping = true; t.popT = 0; score++; }
+    } else {
+      t.dwell = Math.max(0, t.dwell - dt / 250);
+    }
+  });
+}
+
+function drawTargets() {
+  targets.forEach(t => {
+    if (t.popping) {
+      const s = 1 + t.popT * 2.5;
+      ctx.save();
+      ctx.globalAlpha = (1 - t.popT) * 0.85;
+      ctx.strokeStyle = `hsl(${t.hue},85%,68%)`;
+      ctx.lineWidth   = 3 * (1 - t.popT);
+      ctx.shadowColor = `hsl(${t.hue},100%,65%)`;
+      ctx.shadowBlur  = 24;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.r * s, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    // Fill
+    ctx.save();
+    ctx.globalAlpha = 0.10 + t.dwell * 0.18;
+    ctx.fillStyle   = `hsl(${t.hue},70%,55%)`;
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    // Ring
+    ctx.save();
+    ctx.globalAlpha  = 0.38 + t.dwell * 0.35;
+    ctx.strokeStyle  = `hsl(${t.hue},80%,65%)`;
+    ctx.lineWidth    = 1.5;
+    ctx.shadowColor  = `hsl(${t.hue},100%,65%)`;
+    ctx.shadowBlur   = 8 + t.dwell * 18;
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+    // Dwell arc
+    if (t.dwell > 0) {
+      ctx.save();
+      ctx.strokeStyle = `hsl(${t.hue},90%,78%)`;
+      ctx.lineWidth   = 3;
+      ctx.lineCap     = 'round';
+      ctx.shadowColor = `hsl(${t.hue},100%,72%)`;
+      ctx.shadowBlur  = 14;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r + 7, -Math.PI/2, -Math.PI/2 + t.dwell * Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  });
+}
+
+// ── Iris landmarks ──
+const L_IRIS=468,R_IRIS=473,L_OUT=33,L_IN=133,L_TOP=159,L_BOT=145,R_OUT=263,R_IN=362,R_TOP=386,R_BOT=374;
+function gazeVec(lms) {
+  if (lms.length < 478) return null;
+  const li=lms[L_IRIS], ri=lms[R_IRIS];
+  if (!li||!ri) return null;
+  const lcx=(lms[L_OUT].x+lms[L_IN].x)*.5, lcy=(lms[L_TOP].y+lms[L_BOT].y)*.5;
+  const rcx=(lms[R_OUT].x+lms[R_IN].x)*.5, rcy=(lms[R_TOP].y+lms[R_BOT].y)*.5;
+  const lew=Math.abs(lms[L_IN].x-lms[L_OUT].x)||.001, rew=Math.abs(lms[R_IN].x-lms[R_OUT].x)||.001;
+  const leh=Math.abs(lms[L_BOT].y-lms[L_TOP].y)||.001, reh=Math.abs(lms[R_BOT].y-lms[R_TOP].y)||.001;
+  return { gx:((li.x-lcx)/lew+(ri.x-rcx)/rew)*.5, gy:((li.y-lcy)/leh+(ri.y-rcy)/reh)*.5 };
+}
+
+// ── Trail ──
+const TRAIL_LEN = 22;
+const trail = Array.from({length:TRAIL_LEN}, () => ({x:0,y:0}));
+let trailHead = 0;
+
+// ── Draw ──
+function drawText(text, x, y, alpha=0.38) {
+  ctx.save();
+  ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+  ctx.font = '12px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.letterSpacing = '0.08em';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  if (appState === 'loading') {
+    drawText('loading...', W/2, H/2);
+    return;
+  }
+
+  if (appState === 'calibrating') {
+    const pt  = CAL_PTS[calIdx];
+    const px  = pt.x * W, py = pt.y * H;
+    const prog = calSettle > 0 ? 0 : calFrames / CAL_FRAMES_PER_PT;
+    const pulse = 0.7 + 0.3 * Math.sin(now * 0.006);
+
+    // Dim other dots
+    CAL_PTS.forEach((p, i) => {
+      if (i === calIdx) return;
+      const done = i < calIdx;
+      ctx.save();
+      ctx.globalAlpha = done ? 0.12 : 0.20;
+      ctx.beginPath();
+      ctx.arc(p.x*W, p.y*H, 7, 0, Math.PI*2);
+      ctx.fillStyle = done ? 'rgba(255,255,255,0.5)' : 'hsl(290,70%,60%)';
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Progress arc
+    ctx.save();
+    ctx.strokeStyle = 'hsl(290,80%,65%)';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = 'hsl(290,100%,65%)';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(px, py, 22, -Math.PI/2, -Math.PI/2 + prog * Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Core dot
+    ctx.save();
+    ctx.shadowColor = 'hsl(290,100%,70%)';
+    ctx.shadowBlur = 20 * pulse;
+    ctx.fillStyle = 'hsl(290,75%,75%)';
+    ctx.globalAlpha = pulse;
+    ctx.beginPath();
+    ctx.arc(px, py, 8, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // Instruction near dot (above, or below if near top)
+    const labelY = py < H * 0.2 ? py + 48 : py - 38;
+    drawText(`look at dot — ${calIdx+1} / ${CAL_PTS.length}`, px, labelY, 0.5);
+    return;
+  }
+
+  // Tracking
+  const x = cur.x, y = cur.y;
+  const pulse = 0.85 + 0.15 * Math.sin(now * 0.003);
+  for (let i = 0; i < TRAIL_LEN; i++) {
+    const ti = (trailHead-1-i+TRAIL_LEN) % TRAIL_LEN;
+    const t  = trail[ti];
+    ctx.save();
+    ctx.globalAlpha = (1-i/TRAIL_LEN)*0.20;
+    ctx.fillStyle   = 'hsl(290,85%,68%)';
+    ctx.shadowColor = 'hsl(290,100%,65%)';
+    ctx.shadowBlur  = 6;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, 3.5*(1-i/TRAIL_LEN), 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.globalAlpha  = 0.30*pulse;
+  ctx.strokeStyle  = 'hsl(290,75%,65%)';
+  ctx.lineWidth    = 1;
+  ctx.shadowColor  = 'hsl(290,100%,65%)';
+  ctx.shadowBlur   = 20;
+  ctx.beginPath();
+  ctx.arc(x, y, 22*pulse, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.shadowColor = 'hsl(290,100%,75%)';
+  ctx.shadowBlur  = 28;
+  ctx.fillStyle   = 'hsl(290,75%,80%)';
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  drawTargets();
+  // Score
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.font = 'bold 28px monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(score, 24, 24);
+  ctx.restore();
+  drawText('r — recalibrate', W/2, H - 28);
+}
+
+let last = performance.now();
+function frame(ts) {
+  const dt = Math.min(ts-last, 50); last = ts; now = ts;
+  if (appState === 'tracking') {
+    cur.vx = cur.vx*0.83 + (cur.tx-cur.x)*0.09;
+    cur.vy = cur.vy*0.83 + (cur.ty-cur.y)*0.09;
+    cur.x  = Math.max(0, Math.min(W, cur.x+cur.vx));
+    cur.y  = Math.max(0, Math.min(H, cur.y+cur.vy));
+    trail[trailHead] = {x:cur.x, y:cur.y};
+    trailHead = (trailHead+1) % TRAIL_LEN;
+    updateTargets(dt);
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ── FaceMesh ──
+const faceMesh = new FaceMesh({ locateFile: f =>
+  `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${f}`
+});
+faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+
+faceMesh.onResults(results => {
+  if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) return;
+  const gv = gazeVec(results.multiFaceLandmarks[0]);
+  if (!gv) return;
+  const { gx, gy } = gv;
+
+  if (appState === 'calibrating') {
+    if (calSettle > 0) { calSettle--; return; }
+    calAccum.gx += gx; calAccum.gy += gy; calFrames++;
+    if (calFrames >= CAL_FRAMES_PER_PT) {
+      calData.push({ gx: calAccum.gx/calFrames, gy: calAccum.gy/calFrames });
+      calAccum = {gx:0,gy:0}; calFrames = 0; calSettle = CAL_SETTLE; calIdx++;
+      if (calIdx >= CAL_PTS.length) {
+        if (computeAffine()) {
+          cur.x = cur.tx = cur.sx = W/2; cur.y = cur.ty = cur.sy = H/2;
+          score = 0; spawnTargets();
+          appState = 'tracking';
+        } else {
+          startCal(); // retry if degenerate
+        }
+      }
+    }
+  } else if (appState === 'tracking') {
+    const pos = gazeToScreen(gx, gy);
+    cur.tx = pos.x; cur.ty = pos.y;
+  }
+});
+
+let lastSend = 0;
+const vid = document.createElement('video');
+const camera = new Camera(vid, {
+  onFrame: async () => {
+    const t = performance.now();
+    if (t - lastSend > 100) { lastSend = t; await faceMesh.send({image: vid}); }
+  },
+  width: 640, height: 480,
+});
+camera.start().then(() => startCal()).catch(e => { appState = 'loading'; });
+</script>
+</body>
+</html>
