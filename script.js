@@ -8,8 +8,8 @@ const MAX_NEW_TOKENS = 128;
 const MAX_PAIRS      = 8;
 const ARC_LEN        = 175.93; // 2π × 28
 
-let generator    = null;
-let chatHistory  = [{ role: 'system', content: PERSONA }];
+let generator   = null;
+let chatHistory = [{ role: 'system', content: PERSONA }];
 
 const form        = document.getElementById('chat-form');
 const input       = document.getElementById('user-input');
@@ -25,13 +25,8 @@ const emptyState  = document.getElementById('empty-state');
 const now          = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const scrollBottom = () => { messages.scrollTop = messages.scrollHeight; };
 
-function hideEmpty() {
-    if (emptyState) emptyState.style.display = 'none';
-}
-
-function showEmpty() {
-    if (emptyState) emptyState.style.display = '';
-}
+function hideEmpty() { if (emptyState) emptyState.style.display = 'none'; }
+function showEmpty() { if (emptyState) emptyState.style.display = ''; }
 
 function createMessageEl({ text = '', role = 'ai', isTyping = false } = {}) {
     const wrap = document.createElement('div');
@@ -48,10 +43,10 @@ function createMessageEl({ text = '', role = 'ai', isTyping = false } = {}) {
     bubble.className = 'msg__bubble';
 
     if (isTyping) {
-        const typing = document.createElement('div');
-        typing.className = 'typing';
-        typing.innerHTML = '<span class="typing__dot"></span><span class="typing__dot"></span><span class="typing__dot"></span>';
-        bubble.appendChild(typing);
+        const t = document.createElement('div');
+        t.className = 'typing';
+        t.innerHTML = '<span class="typing__dot"></span><span class="typing__dot"></span><span class="typing__dot"></span>';
+        bubble.appendChild(t);
     } else {
         bubble.textContent = text;
     }
@@ -71,12 +66,8 @@ function autosize() {
 }
 
 input.addEventListener('input', autosize);
-
 input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        form.requestSubmit();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
 });
 
 clearBtn?.addEventListener('click', () => {
@@ -109,15 +100,13 @@ form.addEventListener('submit', async (e) => {
     messages.appendChild(aiWrap);
     scrollBottom();
 
-    // Yield two frames so browser paints user message + typing indicator
-    // before WASM blocks the main thread
+    // Yield two frames — lets browser paint before WASM blocks main thread
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     chatHistory.push({ role: 'user', content: userMsg });
     if (chatHistory.length > MAX_PAIRS * 2 + 1) {
         chatHistory = [chatHistory[0], ...chatHistory.slice(-(MAX_PAIRS * 2))];
     }
-    scrollBottom();
 
     let output = '';
     const streamer = new TextStreamer(generator.tokenizer, {
@@ -137,9 +126,9 @@ form.addEventListener('submit', async (e) => {
     } catch (err) {
         bubble.textContent = 'Error: ' + (err?.message || 'Generation failed');
     } finally {
-        meta.textContent   = now();
-        sendBtn.disabled   = false;
-        input.disabled     = false;
+        meta.textContent = now();
+        sendBtn.disabled = false;
+        input.disabled   = false;
         input.focus();
     }
 });
@@ -182,3 +171,28 @@ async function initModel() {
 }
 
 initModel();
+
+/* ── Parallax ────────────────────────────────────────────── */
+const orbs   = [...document.querySelectorAll('.orb')];
+const speeds = [[-50,-35],[42,48],[-28,52],[46,-38]];
+let tgtX = 0, tgtY = 0, curX = 0, curY = 0, tick = 0;
+
+document.addEventListener('mousemove', e => {
+    tgtX = (e.clientX / innerWidth  - 0.5) * 2;
+    tgtY = (e.clientY / innerHeight - 0.5) * 2;
+});
+
+(function loop() {
+    tick += 0.0007;
+    curX += (tgtX - curX) * 0.038;
+    curY += (tgtY - curY) * 0.038;
+
+    orbs.forEach((orb, i) => {
+        const [sx, sy] = speeds[i];
+        const dx = curX * sx + Math.sin(tick + i * 2.1) * 24;
+        const dy = curY * sy + Math.cos(tick * 0.65 + i * 1.5) * 18;
+        orb.style.transform = `translate(${dx}px,${dy}px)`;
+    });
+
+    requestAnimationFrame(loop);
+})();

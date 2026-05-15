@@ -6,52 +6,52 @@
     <title>Kyo — AI Chat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div class="bg-orbs" aria-hidden="true">
-        <div class="bg-orb bg-orb--1"></div>
-        <div class="bg-orb bg-orb--2"></div>
-        <div class="bg-orb bg-orb--3"></div>
+    <div class="scene" aria-hidden="true">
+        <div class="orb orb--1"></div>
+        <div class="orb orb--2"></div>
+        <div class="orb orb--3"></div>
+        <div class="orb orb--4"></div>
     </div>
 
     <main class="app">
-        <div class="chat">
+        <div class="glass-panel">
 
-            <!-- Model loading -->
-            <div id="model-loading" class="model-loading" aria-live="polite">
-                <div class="model-loading__inner">
-                    <div class="model-loading__ring">
+            <!-- Loading -->
+            <div id="model-loading" class="loader" aria-live="polite">
+                <div class="loader__inner">
+                    <div class="loader__ring">
                         <svg viewBox="0 0 72 72" width="72" height="72" aria-hidden="true">
-                            <circle class="ring-track" cx="36" cy="36" r="28"/>
-                            <circle id="ring-arc" class="ring-arc" cx="36" cy="36" r="28"/>
+                            <circle class="ring-bg" cx="36" cy="36" r="28"/>
+                            <circle id="ring-arc" class="ring-fg" cx="36" cy="36" r="28"/>
                         </svg>
-                        <span class="ring-glyph" aria-hidden="true">✦</span>
+                        <span class="loader__glyph" aria-hidden="true">✦</span>
                     </div>
-                    <p class="model-loading__title">Initializing Kyo</p>
-                    <p id="model-progress-text" class="model-loading__sub">Loading model…</p>
-                    <div class="model-loading__track">
-                        <div id="model-progress-bar" class="model-loading__bar"></div>
+                    <p class="loader__title">Initializing Kyo</p>
+                    <p id="model-progress-text" class="loader__sub">Loading model…</p>
+                    <div class="loader__track">
+                        <div id="model-progress-bar" class="loader__bar"></div>
                     </div>
-                    <p class="model-loading__note">Qwen2.5-0.5B · runs entirely in your browser</p>
+                    <p class="loader__note">Qwen2.5-0.5B · runs entirely in your browser</p>
                 </div>
             </div>
 
             <!-- Header -->
-            <header class="chat-header">
-                <div class="chat-header__brand">
-                    <span class="status-dot" aria-hidden="true"></span>
-                    <span class="brand-name">Kyo</span>
-                    <span class="brand-chip">Qwen2.5-0.5B</span>
+            <header class="topbar">
+                <div class="topbar__brand">
+                    <span class="topbar__dot" aria-hidden="true"></span>
+                    <span class="topbar__name">Kyo</span>
+                    <span class="topbar__chip">Qwen2.5-0.5B</span>
                 </div>
-                <div class="chat-header__actions">
-                    <button id="clear-chat" class="icon-btn" title="Clear conversation" aria-label="Clear conversation" type="button">
+                <div class="topbar__actions">
+                    <button id="clear-chat" class="ghost-btn" title="Clear conversation" aria-label="Clear conversation" type="button">
                         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                            <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M9 6V4h6v2"/>
                         </svg>
                     </button>
                 </div>
@@ -59,32 +59,32 @@
 
             <!-- Messages -->
             <div id="messages" class="messages" aria-live="polite" aria-label="Conversation">
-                <div class="empty-state" id="empty-state">
-                    <div class="empty-state__glyph" aria-hidden="true">✦</div>
-                    <h2 class="empty-state__title">Hey, I'm Kyo.</h2>
-                    <p class="empty-state__sub">A small AI running locally in your browser — ask me anything.</p>
+                <div class="empty" id="empty-state">
+                    <span class="empty__glyph" aria-hidden="true">✦</span>
+                    <h2 class="empty__title">Hey, I'm Kyo.</h2>
+                    <p class="empty__sub">A small AI running locally in your browser — nothing leaves your device.</p>
                 </div>
             </div>
 
             <!-- Composer -->
-            <div class="composer-wrap">
+            <div class="bar">
                 <form id="chat-form" class="composer" autocomplete="off">
                     <textarea
                         id="user-input"
-                        class="composer__input"
+                        class="composer__field"
                         placeholder="Ask anything…"
                         rows="1"
                         spellcheck="true"
                         aria-label="Your message"
                         required
                     ></textarea>
-                    <button id="send-btn" class="composer__send" type="submit" title="Send" aria-label="Send message">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                    <button id="send-btn" class="composer__btn" type="submit" title="Send" aria-label="Send">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                         </svg>
                     </button>
                 </form>
-                <p class="composer__hint">No data leaves your browser &mdash; model runs locally via WebAssembly</p>
+                <p class="bar__hint">No data leaves your browser — WebAssembly inference</p>
             </div>
 
         </div>
