@@ -1,137 +1,184 @@
-// Modern chat behavior
-window.addEventListener('DOMContentLoaded', () => {
-	const form = document.getElementById('chat-form');
-	const input = document.getElementById('user-input');
-	const messages = document.getElementById('messages');
-	const sendBtn = document.getElementById('send-btn');
-	const clearBtn = document.getElementById('clear-chat');
-	const MODEL = 'gpt-5-nano';
-			// Optional: Set a persona/system-style instruction to steer the AI's tone/behavior.
-			// Edit this string to change how the assistant talks.
-			const PERSONA = `
-		You are Nova, a calm and competent AI assistant.
-		Style: friendly, modern, and succinct—no fluff.
-		When answering:
-		- Be concise and helpful; prefer short sentences and bullet points.
-		- Provide concrete steps or examples only when they add value.
-		- If the request is ambiguous, ask one brief clarifying question first.
-		- If you don't know, say so and suggest a next step.
-		- Do not repeat the user's question.
-		`;
+import { pipeline, TextStreamer, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
 
-	// Utilities
-	const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-	const scrollToBottom = () => { messages.scrollTop = messages.scrollHeight; };
+env.allowLocalModels = false;
 
-	function createMessageEl({ text = '', role = 'ai', isTyping = false } = {}) {
-		const wrap = document.createElement('div');
-		wrap.className = `msg ${role === 'user' ? 'msg--user' : 'msg--ai'}`;
+const MODEL_ID       = 'onnx-community/Qwen2.5-0.5B-Instruct';
+const PERSONA        = `You are Kyo, a compact AI assistant running entirely inside the user's browser via WebAssembly — no internet connection is used for inference. You are powered by Qwen2.5-0.5B, a small but capable language model. Be helpful, honest, and concise. You can do math, answer questions, summarize, explain concepts, and hold conversation. If asked who you are, explain you are Kyo, a local AI. Never claim to be a large model like GPT or Claude.`;
+const MAX_NEW_TOKENS = 128;
+const MAX_PAIRS      = 8;
+const ARC_LEN        = 175.93; // 2π × 28
 
-		const avatar = document.createElement('div');
-		avatar.className = 'msg__avatar';
-		avatar.textContent = role === 'user' ? '🧑' : '🤖';
+let generator    = null;
+let chatHistory  = [{ role: 'system', content: PERSONA }];
 
-		const content = document.createElement('div');
+const form        = document.getElementById('chat-form');
+const input       = document.getElementById('user-input');
+const messages    = document.getElementById('messages');
+const sendBtn     = document.getElementById('send-btn');
+const clearBtn    = document.getElementById('clear-chat');
+const loadingEl   = document.getElementById('model-loading');
+const progressBar = document.getElementById('model-progress-bar');
+const progressTxt = document.getElementById('model-progress-text');
+const ringArc     = document.getElementById('ring-arc');
+const emptyState  = document.getElementById('empty-state');
 
-		const bubble = document.createElement('div');
-		bubble.className = 'msg__bubble';
+const now          = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const scrollBottom = () => { messages.scrollTop = messages.scrollHeight; };
 
-		if (isTyping) {
-			const typing = document.createElement('div');
-			typing.className = 'typing';
-			typing.innerHTML = '<span class="typing__dot"></span><span class="typing__dot"></span><span class="typing__dot"></span>';
-			bubble.appendChild(typing);
-		} else {
-			bubble.textContent = text;
-		}
+function hideEmpty() {
+    if (emptyState) emptyState.style.display = 'none';
+}
 
-		const meta = document.createElement('div');
-		meta.className = 'msg__meta';
-		meta.textContent = now();
+function showEmpty() {
+    if (emptyState) emptyState.style.display = '';
+}
 
-		content.appendChild(bubble);
-		content.appendChild(meta);
-		wrap.appendChild(avatar);
-		wrap.appendChild(content);
-		return wrap;
-	}
+function createMessageEl({ text = '', role = 'ai', isTyping = false } = {}) {
+    const wrap = document.createElement('div');
+    wrap.className = `msg msg--${role === 'user' ? 'user' : 'ai'}`;
 
-	function addUserMessage(text) {
-		const el = createMessageEl({ text, role: 'user' });
-		messages.appendChild(el);
-		scrollToBottom();
-		return el;
-	}
+    if (role === 'ai') {
+        const label = document.createElement('div');
+        label.className = 'msg__label';
+        label.textContent = 'Kyo';
+        wrap.appendChild(label);
+    }
 
-	function addTyping() {
-		const el = createMessageEl({ isTyping: true, role: 'ai' });
-		messages.appendChild(el);
-		scrollToBottom();
-		return el;
-	}
+    const bubble = document.createElement('div');
+    bubble.className = 'msg__bubble';
 
-	function replaceTypingWith(text, typingEl) {
-		if (!typingEl) return;
-		const bubble = typingEl.querySelector('.msg__bubble');
-		if (bubble) {
-			bubble.textContent = text;
-		}
-		typingEl.querySelector('.msg__meta').textContent = now();
-		scrollToBottom();
-	}
+    if (isTyping) {
+        const typing = document.createElement('div');
+        typing.className = 'typing';
+        typing.innerHTML = '<span class="typing__dot"></span><span class="typing__dot"></span><span class="typing__dot"></span>';
+        bubble.appendChild(typing);
+    } else {
+        bubble.textContent = text;
+    }
 
-	// Auto-resize textarea
-	function autosize() {
-		input.style.height = 'auto';
-		input.style.height = Math.min(input.scrollHeight, 160) + 'px';
-	}
-	input.addEventListener('input', autosize);
-	setTimeout(autosize, 0);
+    const meta = document.createElement('div');
+    meta.className = 'msg__meta';
+    meta.textContent = now();
 
-	// Enter to send (Shift+Enter = newline)
-	input.addEventListener('keydown', (e) => {
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
-			form.requestSubmit();
-		}
-	});
+    wrap.appendChild(bubble);
+    wrap.appendChild(meta);
+    return { wrap, bubble, meta };
+}
 
-	// Clear chat
-	clearBtn?.addEventListener('click', () => {
-		messages.innerHTML = '';
-		input.focus();
-	});
+function autosize() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+}
 
-	// Submit handler
-	form.addEventListener('submit', async (e) => {
-		e.preventDefault();
-		const userMsg = input.value.trim();
-		if (!userMsg) return;
+input.addEventListener('input', autosize);
 
-		addUserMessage(userMsg);
-		input.value = '';
-		autosize();
-
-		sendBtn.disabled = true;
-		input.disabled = true;
-
-		const typingEl = addTyping();
-
-			try {
-				// Compose prompt with optional persona prefix
-				const prompt = PERSONA
-					? `${PERSONA}\n\nUser: ${userMsg}`
-					: userMsg;
-				// Call Puter AI
-				const response = await puter.ai.chat(prompt, { model: MODEL });
-			replaceTypingWith(response, typingEl);
-		} catch (err) {
-			const msg = err?.message || 'Unexpected error';
-			replaceTypingWith('Error: ' + msg, typingEl);
-		} finally {
-			sendBtn.disabled = false;
-			input.disabled = false;
-			input.focus();
-		}
-	});
+input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+    }
 });
+
+clearBtn?.addEventListener('click', () => {
+    messages.innerHTML = '';
+    messages.appendChild(emptyState);
+    showEmpty();
+    chatHistory = [{ role: 'system', content: PERSONA }];
+    input.focus();
+});
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!generator) return;
+
+    const userMsg = input.value.trim();
+    if (!userMsg) return;
+
+    hideEmpty();
+
+    const { wrap: userWrap } = createMessageEl({ text: userMsg, role: 'user' });
+    messages.appendChild(userWrap);
+    scrollBottom();
+
+    input.value = '';
+    autosize();
+    sendBtn.disabled = true;
+    input.disabled   = true;
+
+    const { wrap: aiWrap, bubble, meta } = createMessageEl({ isTyping: true, role: 'ai' });
+    messages.appendChild(aiWrap);
+    scrollBottom();
+
+    // Yield two frames so browser paints user message + typing indicator
+    // before WASM blocks the main thread
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    chatHistory.push({ role: 'user', content: userMsg });
+    if (chatHistory.length > MAX_PAIRS * 2 + 1) {
+        chatHistory = [chatHistory[0], ...chatHistory.slice(-(MAX_PAIRS * 2))];
+    }
+    scrollBottom();
+
+    let output = '';
+    const streamer = new TextStreamer(generator.tokenizer, {
+        skip_prompt: true,
+        skip_special_tokens: true,
+        callback_function: (text) => {
+            output += text;
+            bubble.textContent = output;
+            scrollBottom();
+        },
+    });
+
+    try {
+        await generator(chatHistory, { max_new_tokens: MAX_NEW_TOKENS, do_sample: false, streamer });
+        if (!output) bubble.textContent = '…';
+        chatHistory.push({ role: 'assistant', content: output });
+    } catch (err) {
+        bubble.textContent = 'Error: ' + (err?.message || 'Generation failed');
+    } finally {
+        meta.textContent   = now();
+        sendBtn.disabled   = false;
+        input.disabled     = false;
+        input.focus();
+    }
+});
+
+/* ── Model init ──────────────────────────────────────────── */
+const fileBytes = {};
+
+function setProgress(pct) {
+    progressBar.style.width = pct + '%';
+    if (ringArc) ringArc.style.strokeDashoffset = ARC_LEN * (1 - pct / 100);
+}
+
+async function initModel() {
+    try {
+        generator = await pipeline('text-generation', MODEL_ID, {
+            dtype: 'q4',
+            progress_callback: ({ status, file, loaded, total }) => {
+                if (status === 'progress' && file) {
+                    fileBytes[file] = { loaded: loaded || 0, total: total || 0 };
+                    const sumLoaded = Object.values(fileBytes).reduce((a, b) => a + b.loaded, 0);
+                    const sumTotal  = Object.values(fileBytes).reduce((a, b) => a + b.total, 0);
+                    if (sumTotal > 0) {
+                        const pct = Math.round((sumLoaded / sumTotal) * 100);
+                        setProgress(pct);
+                        progressTxt.textContent = `Downloading… ${pct}%`;
+                    }
+                } else if (status === 'done' && file && fileBytes[file]) {
+                    fileBytes[file].loaded = fileBytes[file].total;
+                } else if (status === 'loading') {
+                    setProgress(100);
+                    progressTxt.textContent = 'Loading into memory…';
+                }
+            },
+        });
+        loadingEl.classList.add('hidden');
+        input.focus();
+    } catch (err) {
+        progressTxt.textContent = 'Failed: ' + (err?.message || 'Unknown error');
+    }
+}
+
+initModel();
