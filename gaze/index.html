@@ -121,22 +121,22 @@ const MAX_TARGETS = 4;
 let targets = [];
 let score = 0;
 
-function mkTarget() {
+function mkTarget(existing = []) {
   const margin = 0.13;
-  return {
-    x: (margin + Math.random() * (1 - margin*2)) * W,
-    y: (margin + Math.random() * (1 - margin*2)) * H,
-    r: 58 + Math.random() * 20,
-    hue: Math.random() * 360,
-    dwell: 0,
-    popping: false,
-    popT: 0,
-  };
+  const r = 58 + Math.random() * 20;
+  const minDist = r + 78 + 60; // max r of other + padding
+  let x, y, attempts = 0;
+  do {
+    x = (margin + Math.random() * (1 - margin*2)) * W;
+    y = (margin + Math.random() * (1 - margin*2)) * H;
+    attempts++;
+  } while (attempts < 30 && existing.some(t => !t.popping && Math.hypot(x - t.x, y - t.y) < minDist));
+  return { x, y, r, hue: Math.random() * 360, dwell: 0, popping: false, popT: 0 };
 }
 
 function spawnTargets() {
   targets = [];
-  for (let i = 0; i < MAX_TARGETS; i++) targets.push(mkTarget());
+  for (let i = 0; i < MAX_TARGETS; i++) targets.push(mkTarget(targets));
 }
 
 function updateTargets(dt) {
@@ -144,7 +144,7 @@ function updateTargets(dt) {
   targets.forEach((t, i) => {
     if (t.popping) {
       t.popT += dt / 380;
-      if (t.popT >= 1) targets[i] = mkTarget();
+      if (t.popT >= 1) targets[i] = mkTarget(targets);
       return;
     }
     const inside = Math.hypot(cx - t.x, cy - t.y) < t.r + 12;
@@ -352,6 +352,21 @@ function frame(ts) {
   const dt = Math.min(ts-last, 50); last = ts; now = ts;
   if (appState === 'tracking') {
     if (blinking) { cur.tx = cur.x; cur.ty = cur.y; cur.vx = 0; cur.vy = 0; }
+    // Target gravity
+    let nearDist = Infinity, nearTarget = null;
+    targets.forEach(t => {
+      if (t.popping) return;
+      const d = Math.hypot(cur.tx - t.x, cur.ty - t.y);
+      if (d < nearDist) { nearDist = d; nearTarget = t; }
+    });
+    if (nearTarget) {
+      const gravR = nearTarget.r * 3.2;
+      if (nearDist < gravR) {
+        const pull = (1 - nearDist / gravR) * 0.40;
+        cur.tx += (nearTarget.x - cur.tx) * pull;
+        cur.ty += (nearTarget.y - cur.ty) * pull;
+      }
+    }
     cur.vx = cur.vx*0.83 + (cur.tx-cur.x)*0.09;
     cur.vy = cur.vy*0.83 + (cur.ty-cur.y)*0.09;
     cur.x  = Math.max(0, Math.min(W, cur.x+cur.vx));
