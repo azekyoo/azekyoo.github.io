@@ -20,7 +20,14 @@ canvas { display: block; width: 100%; height: 100%; }
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
 let W, H;
-function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+const trailCanvas = document.createElement('canvas');
+const tCtx = trailCanvas.getContext('2d');
+let trailPrevX = null, trailPrevY = null;
+function resize() {
+  W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+  trailCanvas.width = W; trailCanvas.height = H;
+  trailPrevX = null; trailPrevY = null;
+}
 resize();
 window.addEventListener('resize', resize);
 
@@ -102,6 +109,9 @@ function startCal() {
   calData = []; affine = null;
   cur.x = cur.tx = W/2; cur.y = cur.ty = H/2;
   cur.vx = cur.vy = 0;
+  tCtx.clearRect(0, 0, W, H);
+  trailPrevX = null; trailPrevY = null;
+  oefX.reset(); oefY.reset();
 }
 
 document.addEventListener('keydown', e => { if (e.code === 'KeyR') startCal(); });
@@ -205,10 +215,34 @@ function gazeVec(lms) {
   return { gx:((li.x-lcx)/lew+(ri.x-rcx)/rew)*.5, gy:((li.y-lcy)/leh+(ri.y-rcy)/reh)*.5 };
 }
 
-// ── Trail ──
-const TRAIL_LEN = 22;
-const trail = Array.from({length:TRAIL_LEN}, () => ({x:0,y:0}));
-let trailHead = 0;
+// ── One Euro Filter ──
+class OneEuro {
+  constructor(freq, minCutoff = 1.5, beta = 0.05, dCutoff = 1.0) {
+    this.freq = freq; this.minCutoff = minCutoff; this.beta = beta; this.dCutoff = dCutoff;
+    this.x = null; this.dx = 0;
+  }
+  alpha(cutoff) { const te = 1/this.freq, tau = 1/(2*Math.PI*cutoff); return 1/(1+tau/te); }
+  filter(x) {
+    if (this.x === null) { this.x = x; return x; }
+    const dx = (x - this.x) * this.freq;
+    this.dx += this.alpha(this.dCutoff) * (dx - this.dx);
+    const cutoff = this.minCutoff + this.beta * Math.abs(this.dx);
+    this.x += this.alpha(cutoff) * (x - this.x);
+    return this.x;
+  }
+  reset() { this.x = null; this.dx = 0; }
+}
+const oefX = new OneEuro(10, 0.8, 0.25);
+const oefY = new OneEuro(10, 0.8, 0.25);
+
+// ── Blink ──
+let blinking = false;
+const BLINK_THRESH = 0.18;
+function eyeAR(lms) {
+  const lEAR = Math.abs(lms[159].y - lms[145].y) / (Math.abs(lms[33].x - lms[133].x) || 0.001);
+  const rEAR = Math.abs(lms[386].y - lms[374].y) / (Math.abs(lms[263].x - lms[362].x) || 0.001);
+  return (lEAR + rEAR) * 0.5;
+}
 
 // ── Draw ──
 function drawText(text, x, y, alpha=0.38) {
@@ -282,19 +316,7 @@ function draw() {
   // Tracking
   const x = cur.x, y = cur.y;
   const pulse = 0.85 + 0.15 * Math.sin(now * 0.003);
-  for (let i = 0; i < TRAIL_LEN; i++) {
-    const ti = (trailHead-1-i+TRAIL_LEN) % TRAIL_LEN;
-    const t  = trail[ti];
-    ctx.save();
-    ctx.globalAlpha = (1-i/TRAIL_LEN)*0.20;
-    ctx.fillStyle   = 'hsl(290,85%,68%)';
-    ctx.shadowColor = 'hsl(290,100%,65%)';
-    ctx.shadowBlur  = 6;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, 3.5*(1-i/TRAIL_LEN), 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-  }
+  ctx.drawImage(trailCanvas, 0, 0);
   ctx.save();
   ctx.globalAlpha  = 0.30*pulse;
   ctx.strokeStyle  = 'hsl(290,75%,65%)';
@@ -329,12 +351,30 @@ let last = performance.now();
 function frame(ts) {
   const dt = Math.min(ts-last, 50); last = ts; now = ts;
   if (appState === 'tracking') {
+    if (blinking) { cur.tx = cur.x; cur.ty = cur.y; cur.vx = 0; cur.vy = 0; }
     cur.vx = cur.vx*0.83 + (cur.tx-cur.x)*0.09;
     cur.vy = cur.vy*0.83 + (cur.ty-cur.y)*0.09;
     cur.x  = Math.max(0, Math.min(W, cur.x+cur.vx));
     cur.y  = Math.max(0, Math.min(H, cur.y+cur.vy));
-    trail[trailHead] = {x:cur.x, y:cur.y};
-    trailHead = (trailHead+1) % TRAIL_LEN;
+    // Ink trail
+    tCtx.fillStyle = 'rgba(0,0,0,0.08)';
+    tCtx.fillRect(0, 0, W, H);
+    if (!blinking && trailPrevX !== null) {
+      tCtx.save();
+      tCtx.strokeStyle = 'hsl(290,75%,62%)';
+      tCtx.lineWidth = 2.5;
+      tCtx.lineCap = 'round';
+      tCtx.shadowColor = 'hsl(290,100%,65%)';
+      tCtx.shadowBlur = 7;
+      tCtx.globalAlpha = 0.60;
+      tCtx.beginPath();
+      tCtx.moveTo(trailPrevX, trailPrevY);
+      tCtx.lineTo(cur.x, cur.y);
+      tCtx.stroke();
+      tCtx.restore();
+    }
+    trailPrevX = blinking ? null : cur.x;
+    trailPrevY = blinking ? null : cur.y;
     updateTargets(dt);
   }
   draw();
@@ -349,8 +389,11 @@ const faceMesh = new FaceMesh({ locateFile: f =>
 faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
 
 faceMesh.onResults(results => {
-  if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) return;
-  const gv = gazeVec(results.multiFaceLandmarks[0]);
+  if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) { blinking = false; return; }
+  const lms = results.multiFaceLandmarks[0];
+  blinking = eyeAR(lms) < BLINK_THRESH;
+  if (blinking) return;
+  const gv = gazeVec(lms);
   if (!gv) return;
   const { gx, gy } = gv;
 
@@ -372,7 +415,8 @@ faceMesh.onResults(results => {
     }
   } else if (appState === 'tracking') {
     const pos = gazeToScreen(gx, gy);
-    cur.tx = pos.x; cur.ty = pos.y;
+    cur.tx = oefX.filter(pos.x);
+    cur.ty = oefY.filter(pos.y);
   }
 });
 
