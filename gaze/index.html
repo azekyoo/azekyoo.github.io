@@ -75,9 +75,7 @@ function computeAffine() {
   let AtBx  = [0, 0, 0];
   let AtBy  = [0, 0, 0];
   for (let i = 0; i < n; i++) {
-    const { gx, gy } = calData[i];
-    const sx = CAL_PTS[i].x * W;
-    const sy = CAL_PTS[i].y * H;
+    const { gx, gy, sx, sy } = calData[i];
     const row = [gx, gy, 1];
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 3; c++) AtA[r*3+c] += row[r]*row[c];
@@ -106,7 +104,7 @@ function startCal() {
   appState = 'calibrating';
   calIdx = 0; calFrames = 0; calSettle = CAL_SETTLE;
   calAccum = { gx: 0, gy: 0 };
-  calData = []; affine = null;
+  calData = []; affine = null; onlineCalCount = 0;
   cur.x = cur.tx = W/2; cur.y = cur.ty = H/2;
   cur.vx = cur.vy = 0;
   tCtx.clearRect(0, 0, W, H);
@@ -131,7 +129,7 @@ function mkTarget(existing = []) {
     y = (margin + Math.random() * (1 - margin*2)) * H;
     attempts++;
   } while (attempts < 30 && existing.some(t => !t.popping && Math.hypot(x - t.x, y - t.y) < minDist));
-  return { x, y, r, hue: Math.random() * 360, dwell: 0, popping: false, popT: 0 };
+  return { x, y, r, hue: Math.random() * 360, dwell: 0, popping: false, popT: 0, dwellGx: 0, dwellGy: 0, dwellCount: 0, lastGazeId: -1 };
 }
 
 function spawnTargets() {
@@ -149,8 +147,26 @@ function updateTargets(dt) {
     }
     const inside = Math.hypot(cx - t.x, cy - t.y) < t.r + 12;
     if (inside) {
+      // Accumulate raw gaze for online recalibration
+      if (lastRawGaze && lastRawGaze.id !== t.lastGazeId) {
+        t.dwellGx += lastRawGaze.gx; t.dwellGy += lastRawGaze.gy; t.dwellCount++;
+        t.lastGazeId = lastRawGaze.id;
+      }
       t.dwell += dt / 900;
-      if (t.dwell >= 1) { t.dwell = 1; t.popping = true; t.popT = 0; score++; }
+      if (t.dwell >= 1) {
+        t.dwell = 1; t.popping = true; t.popT = 0; score++;
+        // Add as online calibration point (never evict initial anchor points)
+        if (t.dwellCount >= 3) {
+          calData.push({ gx: t.dwellGx/t.dwellCount, gy: t.dwellGy/t.dwellCount, sx: t.x, sy: t.y });
+          onlineCalCount++;
+          if (onlineCalCount > MAX_ONLINE_PTS) {
+            // Remove oldest online point (index 5+ are online, first 5 are anchors)
+            calData.splice(CAL_PTS.length, 1);
+            onlineCalCount--;
+          }
+          computeAffine();
+        }
+      }
     } else {
       t.dwell = Math.max(0, t.dwell - dt / 250);
     }
@@ -234,6 +250,12 @@ class OneEuro {
 }
 const oefX = new OneEuro(10, 0.8, 0.25);
 const oefY = new OneEuro(10, 0.8, 0.25);
+
+// ── Online recalibration ──
+const MAX_ONLINE_PTS = 15; // initial 5 anchor points never evicted
+let onlineCalCount = 0;
+let lastRawGaze = null;
+let rawGazeId   = 0;
 
 // ── Blink ──
 let blinking = false;
@@ -352,10 +374,12 @@ function frame(ts) {
   const dt = Math.min(ts-last, 50); last = ts; now = ts;
   if (appState === 'tracking') {
     if (blinking) { cur.tx = cur.x; cur.ty = cur.y; cur.vx = 0; cur.vy = 0; }
-    // Target gravity
+    // Target gravity — if dwelling, only attract to that target
+    const dwellingOn = targets.find(t => !t.popping && t.dwell > 0);
     let nearDist = Infinity, nearTarget = null;
     targets.forEach(t => {
       if (t.popping) return;
+      if (dwellingOn && t !== dwellingOn) return;
       const d = Math.hypot(cur.tx - t.x, cur.ty - t.y);
       if (d < nearDist) { nearDist = d; nearTarget = t; }
     });
@@ -416,7 +440,7 @@ faceMesh.onResults(results => {
     if (calSettle > 0) { calSettle--; return; }
     calAccum.gx += gx; calAccum.gy += gy; calFrames++;
     if (calFrames >= CAL_FRAMES_PER_PT) {
-      calData.push({ gx: calAccum.gx/calFrames, gy: calAccum.gy/calFrames });
+      calData.push({ gx: calAccum.gx/calFrames, gy: calAccum.gy/calFrames, sx: CAL_PTS[calIdx].x * W, sy: CAL_PTS[calIdx].y * H });
       calAccum = {gx:0,gy:0}; calFrames = 0; calSettle = CAL_SETTLE; calIdx++;
       if (calIdx >= CAL_PTS.length) {
         if (computeAffine()) {
@@ -429,6 +453,7 @@ faceMesh.onResults(results => {
       }
     }
   } else if (appState === 'tracking') {
+    lastRawGaze = { gx, gy, id: ++rawGazeId };
     const pos = gazeToScreen(gx, gy);
     cur.tx = oefX.filter(pos.x);
     cur.ty = oefY.filter(pos.y);
