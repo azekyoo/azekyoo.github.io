@@ -145,6 +145,7 @@ const GAZE_X = 22, GAZE_Y = 8;
 
 /* ── Avatar state ── */
 let kyoState      = 'idle'; // 'idle' | 'thinking' | 'replying'
+let moodState     = 'normal'; // 'normal' | 'rage' | 'calm'
 let thinkingStart = 0;
 let irisR     = 24, irisRTgt    = 24;
 let fireMult  = 1,  fireMultTgt = 1;
@@ -460,6 +461,8 @@ const COMMANDS = {
   '.help':    'list all commands',
   '.math':    'evaluate a math expression',
   '.ping':    'test connection to AI server',
+  '.calm':    'dim the fire, restore peace',
+  '.rage':    'unleash the fire',
   '.roll':    'roll a number from 1 to 100',
   '.time':    'show current date and time',
   '.weather': 'show current weather',
@@ -516,16 +519,17 @@ function updateDisplay(action, deletedChar = '') {
 
 function setKyoState(s) {
   kyoState = s;
+  const rage = moodState === 'rage', calm = moodState === 'calm';
   if (s === 'thinking') {
     thinkingStart = now;
     irisRTgt    = 25;
-    fireMultTgt = 1.4;
+    fireMultTgt = rage ? 5.0 : calm ? 0.5 : 1.4;
   } else if (s === 'replying') {
     irisRTgt    = 20;
-    fireMultTgt = 2.4;
+    fireMultTgt = rage ? 6.0 : calm ? 0.6 : 2.4;
   } else {
-    irisRTgt    = 24;
-    fireMultTgt = 1.0;
+    irisRTgt    = calm ? 27 : 24;
+    fireMultTgt = rage ? 4.0 : calm ? 0.15 : 1.0;
   }
 }
 
@@ -644,6 +648,18 @@ async function runCommand(cmd) {
       } catch {
         showBubble('clipboard access denied.', true, true);
       }
+      break;
+
+    case '.calm':
+      moodState = 'calm';
+      setKyoState('idle');
+      showBubble('calm.', true, true);
+      break;
+
+    case '.rage':
+      moodState = 'rage';
+      setKyoState('idle');
+      showBubble('rage.', true, true);
       break;
 
     case '.roll':
