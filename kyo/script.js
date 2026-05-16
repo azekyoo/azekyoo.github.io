@@ -624,7 +624,7 @@ async function runCommand(cmd) {
         const result = Function(`"use strict"; ${mathScope} return (${expr})`)();
         if (typeof result !== 'number' || !isFinite(result)) throw new Error();
         const pretty = Number.isInteger(result) ? result : parseFloat(result.toPrecision(10));
-        showBubble(`${expr} = ${pretty}`, true, true);
+        showBubble(`${pretty}`, true, true);
       } catch {
         showBubble('invalid expression.', true, true);
       }
