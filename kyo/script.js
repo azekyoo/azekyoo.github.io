@@ -461,7 +461,7 @@ const COMMANDS = {
   '.help':    'list all commands',
   '.math':    'evaluate a math expression',
   '.ping':    'test connection to AI server',
-  '.calm':    'dim the fire, restore peace',
+  '.calm':    'restore default fire',
   '.rage':    'unleash the fire',
   '.roll':    'roll a number from 1 to 100',
   '.time':    'show current date and time',
@@ -519,17 +519,17 @@ function updateDisplay(action, deletedChar = '') {
 
 function setKyoState(s) {
   kyoState = s;
-  const rage = moodState === 'rage', calm = moodState === 'calm';
+  const rage = moodState === 'rage';
   if (s === 'thinking') {
     thinkingStart = now;
     irisRTgt    = 25;
-    fireMultTgt = rage ? 5.0 : calm ? 0.5 : 1.4;
+    fireMultTgt = rage ? 5.0 : 1.4;
   } else if (s === 'replying') {
     irisRTgt    = 20;
-    fireMultTgt = rage ? 6.0 : calm ? 0.6 : 2.4;
+    fireMultTgt = rage ? 6.0 : 2.4;
   } else {
-    irisRTgt    = calm ? 27 : 24;
-    fireMultTgt = rage ? 4.0 : calm ? 0.15 : 1.0;
+    irisRTgt    = 24;
+    fireMultTgt = rage ? 4.0 : 1.0;
   }
 }
 
@@ -651,7 +651,7 @@ async function runCommand(cmd) {
       break;
 
     case '.calm':
-      moodState = 'calm';
+      moodState = 'normal';
       setKyoState('idle');
       showBubble('calm.', true, true);
       break;
