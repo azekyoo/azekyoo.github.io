@@ -89,6 +89,8 @@ canvas {
 .speech-bubble.visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0) scale(1);
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .speech-bubble--alert {

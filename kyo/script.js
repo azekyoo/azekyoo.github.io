@@ -542,6 +542,7 @@ function showThinking() {
 }
 
 function showBubble(text, instant = false, alert = false) {
+  if (text && text !== '…') lastReply = text;
   clearTimeout(bubbleTimer);
   clearTimeout(typeTimer);
   speechBubble.textContent = '';
@@ -572,6 +573,17 @@ function showBubble(text, instant = false, alert = false) {
   }
   tick();
 }
+
+speechBubble.addEventListener('click', async () => {
+  const text = speechBubble.textContent.trim();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    speechBubble.style.transition = 'opacity 0.1s';
+    speechBubble.style.opacity = '0.4';
+    setTimeout(() => { speechBubble.style.opacity = ''; speechBubble.style.transition = ''; }, 180);
+  } catch {}
+});
 
 async function sendMessage(message) {
   busy = true;
