@@ -15,45 +15,97 @@ canvas {
   height: 100%;
 }
 
-/* ── Speech bubble (avatar reply, above eyes) ── */
+/* ── Speech bubble ── */
 .speech-bubble {
   position: fixed;
   top: 22%;
   left: 50%;
-  transform: translateX(-50%) translateY(-8px);
-  max-width: 320px;
+  transform: translateX(-50%) translateY(-10px) scale(0.96);
+  max-width: 340px;
   min-width: 80px;
-  padding: 10px 18px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #1a1a1a;
+  padding: 12px 22px;
+  background: rgba(10, 5, 22, 0.80);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid rgba(160, 90, 255, 0.30);
+  border-radius: 20px;
+  box-shadow:
+    0 0 40px rgba(150, 70, 255, 0.20),
+    0 8px 32px rgba(0, 0, 0, 0.50),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  color: rgba(235, 220, 255, 0.92);
   font-family: 'Segoe UI', system-ui, sans-serif;
   font-size: 0.92rem;
-  font-weight: 500;
-  line-height: 1.4;
-  border-radius: 18px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
   text-align: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.speech-bubble.visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+/* Iridescent gradient border */
+.speech-bubble::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    rgba(255, 100, 210, 0.50),
+    rgba(140, 70, 255, 0.45),
+    rgba(70, 180, 255, 0.35),
+    rgba(255, 100, 180, 0.25)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: destination-out;
+  pointer-events: none;
 }
 
+.speech-bubble.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.speech-bubble--alert {
+  border-color: rgba(255, 60, 80, 0.35);
+  box-shadow:
+    0 0 40px rgba(255, 40, 60, 0.22),
+    0 8px 32px rgba(0, 0, 0, 0.50),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  color: rgba(255, 180, 190, 0.95);
+}
+
+.speech-bubble--alert::before {
+  background: linear-gradient(135deg,
+    rgba(255, 60, 100, 0.55),
+    rgba(200, 30, 60, 0.45),
+    rgba(255, 100, 80, 0.35),
+    rgba(255, 60, 100, 0.25)
+  );
+}
+
+.speech-bubble--alert::after {
+  border-top-color: rgba(10, 5, 22, 0.80);
+  filter: drop-shadow(0 2px 6px rgba(255, 40, 60, 0.40));
+}
+
+/* Tail */
 .speech-bubble::after {
   content: '';
   position: absolute;
-  bottom: -9px;
+  bottom: -8px;
   left: 50%;
   transform: translateX(-50%);
   width: 0; height: 0;
-  border-left: 9px solid transparent;
-  border-right: 9px solid transparent;
-  border-top: 9px solid rgba(255, 255, 255, 0.94);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid rgba(10, 5, 22, 0.80);
+  filter: drop-shadow(0 2px 6px rgba(150, 70, 255, 0.35));
 }
 
 /* ── Typing area (user input, below eyes) ── */
@@ -83,6 +135,45 @@ canvas {
 
 .typing-text { display: inline; }
 
+.ghost {
+  display: inline;
+  color: rgba(255, 255, 255, 0.25);
+  text-shadow: none;
+  pointer-events: none;
+}
+
+.cmd-desc {
+  position: fixed;
+  bottom: calc(22% + 46px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.22);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-shadow: none;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.char-new {
+  animation: charNew 0.5s ease forwards;
+}
+.char-del {
+  animation: charDel 0.3s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes charNew {
+  0%   { color: #39ff14; text-shadow: 0 0 14px #39ff14, 0 0 4px #39ff14; }
+  100% { color: rgba(255,255,255,0.88); text-shadow: 0 0 18px rgba(180,100,255,0.7); }
+}
+
+@keyframes charDel {
+  0%   { color: #ff4455; text-shadow: 0 0 14px #ff4455; opacity: 1; }
+  100% { color: #ff4455; opacity: 0; }
+}
+
 .cursor {
   display: inline-block;
   width: 0.55em;
@@ -92,6 +183,14 @@ canvas {
   vertical-align: text-bottom;
   margin-left: 2px;
   animation: blink 1s step-end infinite;
+  transition: width 0.1s ease, background 0.1s ease, box-shadow 0.1s ease;
+}
+
+.cursor--line {
+  width: 2px;
+  background: rgba(190, 120, 255, 0.7);
+  box-shadow: 0 0 6px rgba(190, 120, 255, 0.7);
+  margin-left: 1px;
 }
 
 @keyframes blink {

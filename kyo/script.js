@@ -77,7 +77,7 @@ const fire = [
 function drawFire(eyeIdx, ex, ey, dt) {
   const baseY = ey + EYE_MID_Y;
   fire[eyeIdx].forEach(p => {
-    p.life += p.lifeSpd * dt;
+    p.life += p.lifeSpd * fireMult * dt;
     if (p.life >= 1) resetFire(p);
     const t = p.life;
     const alpha = (t < 0.12 ? t / 0.12 : Math.pow(1 - t, 1.6)) * 0.88;
@@ -137,9 +137,25 @@ function lowerLid(bs) {
   return p;
 }
 
-const GAZE_X = 22, GAZE_Y = 8, IRIS_R = 24;
+const GAZE_X = 22, GAZE_Y = 8;
+
+/* ── Avatar state ── */
+let kyoState      = 'idle'; // 'idle' | 'thinking' | 'replying'
+let thinkingStart = 0;
+let irisR     = 24, irisRTgt    = 24;
+let fireMult  = 1,  fireMultTgt = 1;
 
 function updateGaze(dt, ts) {
+  if (kyoState === 'thinking' && (now - thinkingStart) > 500) {
+    gaze.tx = GAZE_X * 1.2;
+    gaze.ty = -GAZE_Y * 2.2;
+    const sp = 0.09, dp = 0.75;
+    gaze.vx = gaze.vx * dp + (gaze.tx - gaze.px) * sp;
+    gaze.vy = gaze.vy * dp + (gaze.ty - gaze.py) * sp;
+    gaze.px += gaze.vx; gaze.py += gaze.vy;
+    return;
+  }
+
   const idle = !mouse.x || (ts - mouse.lastMove) > 2800;
   if (idle) {
     gaze.wPhX += gaze.wSpX * dt;
@@ -235,18 +251,18 @@ function drawEye(cx, cy, mirror) {
 
   const irisHue = Math.round(290 + Math.sin(now * 0.00025) * 20);
   ctx.beginPath();
-  ctx.arc(ix, iy, IRIS_R, 0, Math.PI * 2);
+  ctx.arc(ix, iy, irisR, 0, Math.PI * 2);
   ctx.fillStyle = '#06000a';
   ctx.fill();
 
-  const irisRing = ctx.createRadialGradient(ix, iy, IRIS_R * 0.30, ix, iy, IRIS_R);
+  const irisRing = ctx.createRadialGradient(ix, iy, irisR * 0.30, ix, iy, irisR);
   irisRing.addColorStop(0,    'rgba(0,0,0,0)');
   irisRing.addColorStop(0.42, `hsla(${irisHue},85%,18%,0)`);
   irisRing.addColorStop(0.55, `hsla(${irisHue},95%,42%,0.95)`);
   irisRing.addColorStop(0.75, `hsla(${irisHue},80%,28%,0.70)`);
   irisRing.addColorStop(1,    'rgba(0,0,0,0.92)');
   ctx.beginPath();
-  ctx.arc(ix, iy, IRIS_R, 0, Math.PI * 2);
+  ctx.arc(ix, iy, irisR, 0, Math.PI * 2);
   ctx.fillStyle = irisRing;
   ctx.fill();
 
@@ -254,43 +270,43 @@ function drawEye(cx, cy, mirror) {
   ctx.shadowColor = `hsl(${irisHue},100%,55%)`;
   ctx.shadowBlur  = 10;
   ctx.beginPath();
-  ctx.arc(ix, iy, IRIS_R - 0.5, 0, Math.PI * 2);
+  ctx.arc(ix, iy, irisR - 0.5, 0, Math.PI * 2);
   ctx.strokeStyle = `hsla(${irisHue},90%,60%,0.45)`;
   ctx.lineWidth   = 1.5;
   ctx.stroke();
   ctx.restore();
 
   ctx.beginPath();
-  ctx.arc(ix, iy, IRIS_R * 0.40, 0, Math.PI * 2);
+  ctx.arc(ix, iy, irisR * 0.40, 0, Math.PI * 2);
   ctx.fillStyle = '#000';
   ctx.fill();
 
   ctx.save();
   ctx.beginPath();
-  ctx.arc(ix, iy, IRIS_R, 0, Math.PI * 2);
+  ctx.arc(ix, iy, irisR, 0, Math.PI * 2);
   ctx.clip();
-  const lidShadow = ctx.createLinearGradient(ix, iy - IRIS_R, ix, iy + IRIS_R * 0.3);
+  const lidShadow = ctx.createLinearGradient(ix, iy - irisR, ix, iy + irisR * 0.3);
   lidShadow.addColorStop(0,   'rgba(0,0,0,0.55)');
   lidShadow.addColorStop(0.4, 'rgba(0,0,0,0)');
   ctx.fillStyle = lidShadow;
-  ctx.fillRect(ix - IRIS_R, iy - IRIS_R, IRIS_R * 2, IRIS_R * 2);
+  ctx.fillRect(ix - irisR, iy - irisR, irisR * 2, irisR * 2);
   const hl = ctx.createRadialGradient(
-    ix - IRIS_R * 0.20, iy - IRIS_R * 0.28, 0,
-    ix - IRIS_R * 0.20, iy - IRIS_R * 0.28, IRIS_R * 0.65
+    ix - irisR * 0.20, iy - irisR * 0.28, 0,
+    ix - irisR * 0.20, iy - irisR * 0.28, irisR * 0.65
   );
   hl.addColorStop(0,   'rgba(255,255,255,0.75)');
   hl.addColorStop(0.5, 'rgba(255,255,255,0.18)');
   hl.addColorStop(1,   'rgba(255,255,255,0)');
   ctx.fillStyle = hl;
-  ctx.fillRect(ix - IRIS_R, iy - IRIS_R, IRIS_R * 2, IRIS_R * 2);
+  ctx.fillRect(ix - irisR, iy - irisR, irisR * 2, irisR * 2);
   ctx.restore();
 
   ctx.beginPath();
-  ctx.arc(ix - IRIS_R * 0.18, iy - IRIS_R * 0.40, IRIS_R * 0.22, 0, Math.PI * 2);
+  ctx.arc(ix - irisR * 0.18, iy - irisR * 0.40, irisR * 0.22, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255,255,255,0.96)';
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(ix + IRIS_R * 0.35, iy + IRIS_R * 0.14, IRIS_R * 0.11, 0, Math.PI * 2);
+  ctx.arc(ix + irisR * 0.35, iy + irisR * 0.14, irisR * 0.11, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255,255,255,0.60)';
   ctx.fill();
 
@@ -313,23 +329,6 @@ function drawEye(cx, cy, mirror) {
   ctx.stroke(upperLid(bs));
   ctx.restore();
 
-  const lashSpikes = [
-    { len: 28, angle: -0.52, w: 4.5 },
-    { len: 22, angle: -0.16, w: 3.5 },
-    { len: 16, angle:  0.20, w: 2.8 },
-    { len: 32, angle: -0.78, w: 3.0 },
-  ];
-  lashSpikes.forEach(({ len, angle, w }) => {
-    const lx = outerX + Math.cos(angle) * len;
-    const ly = outerY + Math.sin(angle) * len;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#000'; ctx.lineWidth = w + 1;
-    ctx.beginPath(); ctx.moveTo(outerX - 3, outerY); ctx.lineTo(lx, ly); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.82)'; ctx.lineWidth = 1.2;
-    ctx.stroke();
-    ctx.restore();
-  });
 
   ctx.save();
   ctx.lineCap = 'round';
@@ -345,12 +344,46 @@ function drawEye(cx, cy, mirror) {
   ctx.restore();
 }
 
+function drawFace(cx, cy) {
+  ctx.save();
+
+  // Faint face oval glow
+  const faceGrad = ctx.createRadialGradient(cx, cy + 40, 30, cx, cy + 40, 270);
+  faceGrad.addColorStop(0,   'rgba(255,255,255,0)');
+  faceGrad.addColorStop(0.6, 'rgba(255,255,255,0.012)');
+  faceGrad.addColorStop(1,   'rgba(255,255,255,0)');
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 40, 250, 190, 0, 0, Math.PI * 2);
+  ctx.fillStyle = faceGrad;
+  ctx.fill();
+
+  // Jaw outline
+  ctx.beginPath();
+  ctx.moveTo(cx - 205, cy - 30);
+  ctx.bezierCurveTo(cx - 205, cy + 140, cx - 85, cy + 195, cx, cy + 198);
+  ctx.bezierCurveTo(cx +  85, cy + 195, cx + 205, cy + 140, cx + 205, cy - 30);
+  ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Nose bridge (barely visible)
+  ctx.beginPath();
+  ctx.moveTo(cx - 10, cy + 28);
+  ctx.bezierCurveTo(cx - 7, cy + 58, cx + 7, cy + 58, cx + 10, cy + 28);
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 function draw(dt) {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
 
   const cx = W / 2, cy = H / 2;
+  drawFace(cx, cy);
   drawFire(0, cx + 195, cy, dt);
   drawFire(1, cx - 195, cy, dt);
   drawEye(cx + 195, cy,  1);
@@ -368,6 +401,9 @@ let last = performance.now();
 function frame(ts) {
   const dt = Math.min(ts - last, 50); last = ts; now = ts;
   breathPhase += 0.00050 * dt;
+  irisR    += (irisRTgt    - irisR)    * 0.06;
+  fireMult += (fireMultTgt - fireMult) * 0.04;
+
   updateGaze(dt, now);
   updateBlink(now);
   draw(dt);
@@ -380,26 +416,107 @@ const WORKER_URL = 'https://kyo-worker.victor-gaspard-mail.workers.dev';
 
 const typingTextEl = document.getElementById('typing-text');
 const speechBubble = document.getElementById('speech-bubble');
+const ghostEl      = document.getElementById('ghost');
+const cmdDescEl = document.getElementById('cmd-desc');
 
-let typingBuffer = '';
-let bubbleTimer  = null;
-let chatHistory  = [];
-let busy         = false;
+const COMMANDS = {
+  '.clear': 'reset conversation memory',
+};
 
-function updateDisplay() {
-  typingTextEl.textContent = typingBuffer;
+let typingBuffer  = '';
+let bubbleTimer   = null;
+let typeTimer     = null;
+let chatHistory   = [];
+let busy          = false;
+let msgHistory    = [];
+let historyIdx    = -1;
+let savedDraft    = '';
+
+function getCommandMatch() {
+  if (!typingBuffer.startsWith('.')) return null;
+  return Object.keys(COMMANDS).find(cmd => cmd.startsWith(typingBuffer)) || null;
 }
 
-function showBubble(text) {
-  speechBubble.textContent = text;
-  speechBubble.classList.add('visible');
+function updateGhost() {
+  const match = getCommandMatch();
+  const remainder = (match && match !== typingBuffer) ? match.slice(typingBuffer.length) : '';
+  ghostEl.textContent = remainder;
+  cmdDescEl.textContent = match ? COMMANDS[match] : '';
+  document.querySelector('.cursor').classList.toggle('cursor--line', !!remainder);
+}
+
+function updateDisplay(action, deletedChar = '') {
+  typingTextEl.textContent = '';
+
+  if (action === 'add' && typingBuffer.length > 0) {
+    typingTextEl.appendChild(document.createTextNode(typingBuffer.slice(0, -1)));
+    const s = document.createElement('span');
+    s.className = 'char-new';
+    s.textContent = typingBuffer[typingBuffer.length - 1];
+    typingTextEl.appendChild(s);
+  } else if (action === 'delete' && deletedChar) {
+    typingTextEl.appendChild(document.createTextNode(typingBuffer));
+    const s = document.createElement('span');
+    s.className = 'char-del';
+    s.textContent = deletedChar;
+    typingTextEl.appendChild(s);
+    setTimeout(() => s.remove(), 320);
+  } else {
+    typingTextEl.textContent = typingBuffer;
+  }
+}
+
+function setKyoState(s) {
+  kyoState = s;
+  if (s === 'thinking') {
+    thinkingStart = now;
+    irisRTgt    = 25;
+    fireMultTgt = 1.4;
+  } else if (s === 'replying') {
+    irisRTgt    = 20;
+    fireMultTgt = 2.4;
+  } else {
+    irisRTgt    = 24;
+    fireMultTgt = 1.0;
+  }
+}
+
+function showBubble(text, instant = false, alert = false) {
   clearTimeout(bubbleTimer);
-  bubbleTimer = setTimeout(() => speechBubble.classList.remove('visible'), 5000);
+  clearTimeout(typeTimer);
+  speechBubble.textContent = '';
+  speechBubble.classList.toggle('speech-bubble--alert', alert);
+  speechBubble.classList.add('visible');
+
+  if (instant || text === '…') {
+    speechBubble.textContent = text;
+    bubbleTimer = setTimeout(() => {
+      speechBubble.classList.remove('visible');
+      setKyoState('idle');
+    }, 5000);
+    return;
+  }
+
+  // Typewriter
+  let i = 0;
+  function tick() {
+    if (i < text.length) {
+      speechBubble.textContent += text[i++];
+      typeTimer = setTimeout(tick, 22 + Math.random() * 18);
+    } else {
+      bubbleTimer = setTimeout(() => {
+        speechBubble.classList.remove('visible');
+        setKyoState('idle');
+      }, 5000);
+    }
+  }
+  tick();
 }
 
 async function sendMessage(message) {
   busy = true;
-  showBubble('…');
+  setKyoState('thinking');
+  showBubble('…', true);
 
   try {
     const res = await fetch(WORKER_URL, {
@@ -408,16 +525,19 @@ async function sendMessage(message) {
       body: JSON.stringify({ message, history: chatHistory }),
     });
 
-    if (!res.ok) throw new Error('Request failed');
-
-    const { reply } = await res.json();
+    const data  = await res.json();
+    console.log('[kyo]', res.status, data);
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    const reply = data.reply?.trim() || '…';
     chatHistory.push({ role: 'user', content: message });
     chatHistory.push({ role: 'assistant', content: reply });
     if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
 
+    setKyoState('replying');
     showBubble(reply);
   } catch {
-    showBubble('…');
+    setKyoState('idle');
+    showBubble('…', true);
   } finally {
     busy = false;
   }
@@ -426,23 +546,73 @@ async function sendMessage(message) {
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+  if (e.key === 'ArrowUp') {
+    if (!msgHistory.length) return;
+    if (historyIdx === -1) savedDraft = typingBuffer;
+    historyIdx = Math.min(historyIdx + 1, msgHistory.length - 1);
+    typingBuffer = msgHistory[historyIdx];
+    updateDisplay();
+    updateGhost();
+    return;
+  }
+
+  if (e.key === 'ArrowDown') {
+    if (historyIdx === -1) return;
+    historyIdx--;
+    typingBuffer = historyIdx === -1 ? savedDraft : msgHistory[historyIdx];
+    updateDisplay();
+    updateGhost();
+    return;
+  }
+
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const match = getCommandMatch();
+    if (match) {
+      typingBuffer = match;
+      updateDisplay();
+      updateGhost();
+    }
+    return;
+  }
+
   if (e.key === 'Enter') {
     const msg = typingBuffer.trim();
     if (!msg || busy) return;
+
+    if (COMMANDS[msg]) {
+      if (msg === '.clear') {
+        chatHistory = [];
+        localStorage.removeItem('kyo-history');
+        showBubble('memory cleared.', true, true);
+      }
+      typingBuffer = '';
+      updateDisplay();
+      updateGhost();
+      return;
+    }
+
+    msgHistory.unshift(msg);
+    historyIdx = -1;
+    savedDraft = '';
     typingBuffer = '';
     updateDisplay();
+    updateGhost();
     sendMessage(msg);
     return;
   }
 
   if (e.key === 'Backspace') {
+    const deleted = typingBuffer[typingBuffer.length - 1] || '';
     typingBuffer = typingBuffer.slice(0, -1);
-    updateDisplay();
+    updateDisplay('delete', deleted);
+    updateGhost();
     return;
   }
 
   if (e.key.length === 1) {
     typingBuffer += e.key;
-    updateDisplay();
+    updateDisplay('add');
+    updateGhost();
   }
 });
