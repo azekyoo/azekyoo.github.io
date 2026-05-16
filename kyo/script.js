@@ -458,6 +458,7 @@ const COMMANDS = {
   '.clear':   'reset conversation memory',
   '.copy':    'copy last reply to clipboard',
   '.help':    'list all commands',
+  '.math':    'evaluate a math expression',
   '.ping':    'test connection to AI server',
   '.time':    'show current date and time',
   '.weather': 'show current weather',
@@ -475,12 +476,17 @@ let lastReply     = '';
 
 function getCommandMatch() {
   if (!typingBuffer.startsWith('.')) return null;
+  // Exact or "cmd + space + args" (for commands that take arguments)
+  const withArgs = Object.keys(COMMANDS).find(c => typingBuffer === c || typingBuffer.startsWith(c + ' '));
+  if (withArgs) return withArgs;
+  // Prefix autocomplete
   return Object.keys(COMMANDS).find(cmd => cmd.startsWith(typingBuffer)) || null;
 }
 
 function updateGhost() {
   const match = getCommandMatch();
-  const remainder = (match && match !== typingBuffer) ? match.slice(typingBuffer.length) : '';
+  const hasArgs = typingBuffer.includes(' ');
+  const remainder = (match && match !== typingBuffer && !hasArgs) ? match.slice(typingBuffer.length) : '';
   ghostEl.textContent = remainder;
   cmdDescEl.textContent = match ? COMMANDS[match] : '';
   document.querySelector('.cursor').classList.toggle('cursor--line', !!remainder);
@@ -601,7 +607,25 @@ document.addEventListener('touchend', kbRefocus, { passive: true });
 kb.focus();
 
 async function runCommand(cmd) {
-  switch (cmd) {
+  const baseCmd = cmd.split(' ')[0];
+  switch (baseCmd) {
+    case '.math': {
+      const expr = cmd.slice(5).trim();
+      if (!expr) { showBubble('usage: .math [expression]', true, true); break; }
+      try {
+        const mathScope = Object.getOwnPropertyNames(Math)
+          .map(k => `const ${k} = Math.${k};`).join('');
+        // eslint-disable-next-line no-new-func
+        const result = Function(`"use strict"; ${mathScope} return (${expr})`)();
+        if (typeof result !== 'number' || !isFinite(result)) throw new Error();
+        const pretty = Number.isInteger(result) ? result : parseFloat(result.toPrecision(10));
+        showBubble(`${expr} = ${pretty}`, true, true);
+      } catch {
+        showBubble('invalid expression.', true, true);
+      }
+      break;
+    }
+
     case '.clear':
       chatHistory = [];
       showBubble('memory cleared.', true, true);
@@ -667,7 +691,8 @@ function handleEnter() {
   const msg = typingBuffer.trim();
   if (!msg || busy) return;
 
-  if (COMMANDS[msg]) {
+  const cmdKey = Object.keys(COMMANDS).find(c => msg === c || msg.startsWith(c + ' '));
+  if (cmdKey) {
     runCommand(msg);
     typingBuffer = '';
     kb.value = '';
