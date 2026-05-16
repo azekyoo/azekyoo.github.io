@@ -150,7 +150,7 @@ let thinkingStart = 0;
 let irisR     = 24, irisRTgt    = 24;
 let fireMult  = 1,  fireMultTgt = 1;
 
-const GLITCH_DUR = 700;
+const GLITCH_DUR = 600;
 let glitchEnd = 0;
 
 function applyGlitch() {
@@ -158,40 +158,59 @@ function applyGlitch() {
   if (remaining <= 0) return;
   const t = remaining / GLITCH_DUR;
 
-  // Initial white flash
-  if (t > 0.82) {
+  // Eye region bounds (mirrors draw() logic)
+  const eyeScale  = Math.min(1, W / 700);
+  const cx        = W / 2;
+  const vv        = window.visualViewport;
+  const visH      = vv ? vv.height : H;
+  const cy        = visH < H - 80 ? visH * 0.40 : H / 2;
+  const upMargin  = Math.ceil(320 * eyeScale);
+  const dnMargin  = Math.ceil(60  * eyeScale);
+  const sideMargin = Math.ceil((195 + W2 + 20) * eyeScale);
+  const rx = Math.max(0, Math.floor(cx - sideMargin));
+  const ry = Math.max(0, Math.floor(cy - upMargin));
+  const rw = Math.min(W - rx, Math.ceil(sideMargin * 2));
+  const rh = Math.min(H - ry, upMargin + dnMargin);
+  if (rw < 2 || rh < 2) return;
+
+  // Brief white flash on trigger
+  if (t > 0.85) {
     ctx.save();
-    ctx.fillStyle = `rgba(255,255,255,${((t - 0.82) / 0.18) * 0.75})`;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = `rgba(255,255,255,${((t - 0.85) / 0.15) * 0.9})`;
+    ctx.fillRect(rx, ry, rw, rh);
     ctx.restore();
     return;
   }
 
-  // Horizontal slice displacement
-  if (Math.random() < 0.75) {
-    const count = Math.floor(2 + Math.random() * 5);
-    for (let i = 0; i < count; i++) {
-      const sy = Math.floor(Math.random() * H);
-      const sh = Math.ceil(2 + Math.random() * 28);
-      const dx = Math.round((Math.random() - 0.5) * 80);
-      if (sy + sh > H) continue;
-      try {
-        const data = ctx.getImageData(0, sy, W, sh);
-        ctx.putImageData(data, dx, sy);
-      } catch {}
+  // Per-column sine-wave vertical displacement + RGB channel separation
+  // (mirrors the shift/ VFX-JS shader logic)
+  const src = ctx.getImageData(rx, ry, rw, rh).data;
+  const dst = new Uint8ClampedArray(src.length);
+  const ts  = performance.now() * 0.003;
+
+  const dArr = new Float32Array(rw);
+  for (let x = 0; x < rw; x++) {
+    dArr[x] = 16 * Math.abs(
+      Math.sin(Math.floor(x / 17) * 7  + ts * 2) +
+      Math.sin(Math.floor(x / 19) * 19 - ts * 3)
+    );
+  }
+
+  for (let y = 0; y < rh; y++) {
+    for (let x = 0; x < rw; x++) {
+      const d  = dArr[x];
+      const di = (y * rw + x) * 4;
+      const yr = Math.min(rh - 1, y + Math.round(d));
+      const yg = Math.min(rh - 1, y + Math.round(d * 1.5));
+      const yb = Math.min(rh - 1, y + Math.round(d * 2));
+      dst[di]     = src[(yr * rw + x) * 4];
+      dst[di + 1] = src[(yg * rw + x) * 4 + 1];
+      dst[di + 2] = src[(yb * rw + x) * 4 + 2];
+      dst[di + 3] = Math.max(src[(yr * rw + x) * 4 + 3], src[(yg * rw + x) * 4 + 3], src[(yb * rw + x) * 4 + 3]);
     }
   }
 
-  // Chromatic scan lines
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  const colours = ['#ff0033', '#00ffee', '#cc00ff'];
-  for (let i = 0; i < 3; i++) {
-    ctx.globalAlpha = Math.random() * 0.55;
-    ctx.fillStyle = colours[i];
-    ctx.fillRect(0, Math.floor(Math.random() * H), W, 1 + Math.floor(Math.random() * 2));
-  }
-  ctx.restore();
+  ctx.putImageData(new ImageData(dst, rw, rh), rx, ry);
 }
 
 function updateGaze(dt, ts) {
