@@ -150,6 +150,50 @@ let thinkingStart = 0;
 let irisR     = 24, irisRTgt    = 24;
 let fireMult  = 1,  fireMultTgt = 1;
 
+const GLITCH_DUR = 700;
+let glitchEnd = 0;
+
+function applyGlitch() {
+  const remaining = glitchEnd - now;
+  if (remaining <= 0) return;
+  const t = remaining / GLITCH_DUR;
+
+  // Initial white flash
+  if (t > 0.82) {
+    ctx.save();
+    ctx.fillStyle = `rgba(255,255,255,${((t - 0.82) / 0.18) * 0.75})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    return;
+  }
+
+  // Horizontal slice displacement
+  if (Math.random() < 0.75) {
+    const count = Math.floor(2 + Math.random() * 5);
+    for (let i = 0; i < count; i++) {
+      const sy = Math.floor(Math.random() * H);
+      const sh = Math.ceil(2 + Math.random() * 28);
+      const dx = Math.round((Math.random() - 0.5) * 80);
+      if (sy + sh > H) continue;
+      try {
+        const data = ctx.getImageData(0, sy, W, sh);
+        ctx.putImageData(data, dx, sy);
+      } catch {}
+    }
+  }
+
+  // Chromatic scan lines
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const colours = ['#ff0033', '#00ffee', '#cc00ff'];
+  for (let i = 0; i < 3; i++) {
+    ctx.globalAlpha = Math.random() * 0.55;
+    ctx.fillStyle = colours[i];
+    ctx.fillRect(0, Math.floor(Math.random() * H), W, 1 + Math.floor(Math.random() * 2));
+  }
+  ctx.restore();
+}
+
 function updateGaze(dt, ts) {
   if (kyoState === 'thinking' && (now - thinkingStart) > 500) {
     gaze.tx = GAZE_X * 1.2;
@@ -412,6 +456,8 @@ function draw(dt) {
   vig.addColorStop(1,   'rgba(0,0,0,0.97)');
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, W, H);
+
+  applyGlitch();
 }
 
 let last = performance.now();
@@ -462,6 +508,7 @@ const COMMANDS = {
   '.math':    'evaluate a math expression',
   '.ping':    'test connection to AI server',
   '.calm':    'restore default fire',
+  '.glitch':  'trigger a visual glitch',
   '.rage':    'unleash the fire',
   '.roll':    'roll a number from 1 to 100',
   '.time':    'show current date and time',
@@ -660,6 +707,10 @@ async function runCommand(cmd) {
       } catch {
         showBubble('clipboard access denied.', true, true);
       }
+      break;
+
+    case '.glitch':
+      glitchEnd = performance.now() + GLITCH_DUR;
       break;
 
     case '.calm':
