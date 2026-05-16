@@ -714,6 +714,9 @@ function handleEnter() {
 
   const cmdKey = Object.keys(COMMANDS).find(c => msg === c || msg.startsWith(c + ' '));
   if (cmdKey) {
+    msgHistory.unshift(msg);
+    historyIdx = -1;
+    savedDraft = '';
     runCommand(msg);
     typingBuffer = '';
     kb.value = '';
