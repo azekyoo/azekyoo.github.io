@@ -8,6 +8,10 @@ window.addEventListener('resize', resize);
 
 const mouse = { x: null, y: null, lastMove: 0 };
 window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.lastMove = performance.now(); });
+window.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  mouse.x = t.clientX; mouse.y = t.clientY; mouse.lastMove = performance.now();
+}, { passive: true });
 
 /* ── Gaze ── */
 const gaze = {
@@ -383,11 +387,20 @@ function draw(dt) {
   ctx.fillRect(0, 0, W, H);
 
   const cx = W / 2, cy = H / 2;
+  const eyeScale = Math.min(1, W / 700);
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(eyeScale, eyeScale);
+  ctx.translate(-cx, -cy);
+
   drawFace(cx, cy);
   drawFire(0, cx + 195, cy, dt);
   drawFire(1, cx - 195, cy, dt);
   drawEye(cx + 195, cy,  1);
   drawEye(cx - 195, cy, -1);
+
+  ctx.restore();
 
   const vig = ctx.createRadialGradient(cx, cy, H * 0.04, cx, cy, H * 0.70);
   vig.addColorStop(0,   'rgba(0,0,0,0)');
@@ -526,7 +539,6 @@ async function sendMessage(message) {
     });
 
     const data  = await res.json();
-    console.log('[kyo]', res.status, data);
     if (!res.ok) throw new Error(data.error || 'Request failed');
     const reply = data.reply?.trim() || '…';
     chatHistory.push({ role: 'user', content: message });
@@ -543,14 +555,59 @@ async function sendMessage(message) {
   }
 }
 
-document.addEventListener('keydown', e => {
+/* ── Input (unified desktop + mobile) ── */
+const kb = document.getElementById('kb');
+
+function kbRefocus() { kb.focus(); }
+document.addEventListener('click', kbRefocus);
+document.addEventListener('touchend', kbRefocus, { passive: true });
+kb.focus();
+
+function handleEnter() {
+  const msg = typingBuffer.trim();
+  if (!msg || busy) return;
+
+  if (COMMANDS[msg]) {
+    if (msg === '.clear') {
+      chatHistory = [];
+      localStorage.removeItem('kyo-history');
+      showBubble('memory cleared.', true, true);
+    }
+    typingBuffer = '';
+    kb.value = '';
+    updateDisplay();
+    updateGhost();
+    return;
+  }
+
+  msgHistory.unshift(msg);
+  historyIdx = -1;
+  savedDraft = '';
+  typingBuffer = '';
+  kb.value = '';
+  updateDisplay();
+  updateGhost();
+  sendMessage(msg);
+}
+
+kb.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  if (e.key === 'Enter') { e.preventDefault(); handleEnter(); return; }
+
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const match = getCommandMatch();
+    if (match) { typingBuffer = match; kb.value = match; updateDisplay(); updateGhost(); }
+    return;
+  }
 
   if (e.key === 'ArrowUp') {
     if (!msgHistory.length) return;
     if (historyIdx === -1) savedDraft = typingBuffer;
     historyIdx = Math.min(historyIdx + 1, msgHistory.length - 1);
     typingBuffer = msgHistory[historyIdx];
+    kb.value = typingBuffer;
     updateDisplay();
     updateGhost();
     return;
@@ -560,59 +617,25 @@ document.addEventListener('keydown', e => {
     if (historyIdx === -1) return;
     historyIdx--;
     typingBuffer = historyIdx === -1 ? savedDraft : msgHistory[historyIdx];
+    kb.value = typingBuffer;
     updateDisplay();
     updateGhost();
     return;
   }
+});
 
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const match = getCommandMatch();
-    if (match) {
-      typingBuffer = match;
-      updateDisplay();
-      updateGhost();
-    }
-    return;
-  }
-
-  if (e.key === 'Enter') {
-    const msg = typingBuffer.trim();
-    if (!msg || busy) return;
-
-    if (COMMANDS[msg]) {
-      if (msg === '.clear') {
-        chatHistory = [];
-        localStorage.removeItem('kyo-history');
-        showBubble('memory cleared.', true, true);
-      }
-      typingBuffer = '';
-      updateDisplay();
-      updateGhost();
-      return;
-    }
-
-    msgHistory.unshift(msg);
-    historyIdx = -1;
-    savedDraft = '';
-    typingBuffer = '';
-    updateDisplay();
-    updateGhost();
-    sendMessage(msg);
-    return;
-  }
-
-  if (e.key === 'Backspace') {
-    const deleted = typingBuffer[typingBuffer.length - 1] || '';
-    typingBuffer = typingBuffer.slice(0, -1);
-    updateDisplay('delete', deleted);
-    updateGhost();
-    return;
-  }
-
-  if (e.key.length === 1) {
-    typingBuffer += e.key;
+kb.addEventListener('input', () => {
+  const newVal = kb.value;
+  if (newVal.length === typingBuffer.length + 1 && newVal.startsWith(typingBuffer)) {
+    typingBuffer = newVal;
     updateDisplay('add');
-    updateGhost();
+  } else if (newVal.length === typingBuffer.length - 1 && typingBuffer.startsWith(newVal)) {
+    const deleted = typingBuffer[typingBuffer.length - 1];
+    typingBuffer = newVal;
+    updateDisplay('delete', deleted);
+  } else {
+    typingBuffer = newVal;
+    updateDisplay();
   }
+  updateGhost();
 });

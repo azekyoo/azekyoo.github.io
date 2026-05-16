@@ -5,6 +5,10 @@ html, body {
   background: #000;
   overflow: hidden;
   cursor: default;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 canvas {
@@ -13,6 +17,22 @@ canvas {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+#kb {
+  position: fixed;
+  top: -200px;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  caret-color: transparent;
+  color: transparent;
+  font-size: 16px;
+  pointer-events: none;
 }
 
 /* ── Speech bubble ── */
