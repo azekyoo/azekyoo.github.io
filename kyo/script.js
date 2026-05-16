@@ -608,7 +608,7 @@ async function runCommand(cmd) {
       break;
 
     case '.help':
-      showBubble(Object.entries(COMMANDS).map(([k, v]) => `${k} — ${v}`).join('\n'), true);
+      showBubble(Object.entries(COMMANDS).map(([k, v]) => `${k} — ${v}`).join('\n'), true, true);
       break;
 
     case '.copy':
@@ -626,7 +626,7 @@ async function runCommand(cmd) {
       try {
         await fetch(WORKER_URL + '/ping');
         const ms = Math.round(performance.now() - t0);
-        showBubble(`pong — ${ms}ms`, true);
+        showBubble(`pong — ${ms}ms`, true, true);
       } catch {
         showBubble('worker unreachable.', true, true);
       }
