@@ -218,6 +218,31 @@ canvas {
   50%       { opacity: 0; }
 }
 
+/* ── Thinking dots ── */
+.thinking-dots {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  height: 14px;
+}
+
+.thinking-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(190, 120, 255, 0.85);
+  box-shadow: 0 0 10px rgba(190, 120, 255, 0.65);
+  animation: thinking-dot 1.4s ease-in-out infinite;
+}
+
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking-dot {
+  0%, 55%, 100% { transform: translateY(0);   opacity: 0.30; }
+  27%            { transform: translateY(-9px); opacity: 1;    }
+}
+
 /* hint */
 .hint {
   position: fixed;

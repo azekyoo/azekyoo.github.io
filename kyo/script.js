@@ -386,7 +386,10 @@ function draw(dt) {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
 
-  const cx = W / 2, cy = H / 2;
+  const cx = W / 2;
+  const vv = window.visualViewport;
+  const visH = vv ? vv.height : H;
+  const cy = visH < H - 80 ? visH * 0.40 : H / 2;
   const eyeScale = Math.min(1, W / 700);
 
   ctx.save();
@@ -428,9 +431,28 @@ requestAnimationFrame(frame);
 const WORKER_URL = 'https://kyo-worker.victor-gaspard-mail.workers.dev';
 
 const typingTextEl = document.getElementById('typing-text');
+const typingAreaEl = document.getElementById('typing-area');
 const speechBubble = document.getElementById('speech-bubble');
 const ghostEl      = document.getElementById('ghost');
-const cmdDescEl = document.getElementById('cmd-desc');
+const cmdDescEl    = document.getElementById('cmd-desc');
+
+/* ── Virtual keyboard offset (Android + iOS) ── */
+if (window.visualViewport) {
+  function adjustForKeyboard() {
+    const vv = window.visualViewport;
+    const keyboardH = Math.max(0, window.innerHeight - vv.offsetTop - vv.height);
+    if (keyboardH > 80) {
+      const above = keyboardH + 14;
+      typingAreaEl.style.bottom = above + 'px';
+      cmdDescEl.style.bottom    = (above + 46) + 'px';
+    } else {
+      typingAreaEl.style.bottom = '';
+      cmdDescEl.style.bottom    = '';
+    }
+  }
+  window.visualViewport.addEventListener('resize', adjustForKeyboard);
+  window.visualViewport.addEventListener('scroll', adjustForKeyboard);
+}
 
 const COMMANDS = {
   '.clear': 'reset conversation memory',
@@ -494,6 +516,14 @@ function setKyoState(s) {
   }
 }
 
+function showThinking() {
+  clearTimeout(bubbleTimer);
+  clearTimeout(typeTimer);
+  speechBubble.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+  speechBubble.classList.remove('speech-bubble--alert');
+  speechBubble.classList.add('visible');
+}
+
 function showBubble(text, instant = false, alert = false) {
   clearTimeout(bubbleTimer);
   clearTimeout(typeTimer);
@@ -529,7 +559,7 @@ function showBubble(text, instant = false, alert = false) {
 async function sendMessage(message) {
   busy = true;
   setKyoState('thinking');
-  showBubble('…', true);
+  showThinking();
 
   try {
     const res = await fetch(WORKER_URL, {
