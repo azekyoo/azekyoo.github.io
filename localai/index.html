@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kyo — AI Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="scene" aria-hidden="true">
+        <div class="orb orb--1"></div>
+        <div class="orb orb--2"></div>
+        <div class="orb orb--3"></div>
+        <div class="orb orb--4"></div>
+    </div>
+
+    <main class="app">
+
+        <!-- Loader — standalone, shown while model downloads -->
+        <div id="model-loading" class="loader" aria-live="polite">
+            <div class="loader__inner">
+                <div class="loader__ring">
+                    <svg viewBox="0 0 72 72" width="72" height="72" aria-hidden="true">
+                        <circle class="ring-bg" cx="36" cy="36" r="28"/>
+                        <circle id="ring-arc" class="ring-fg" cx="36" cy="36" r="28"/>
+                    </svg>
+                    <span class="loader__glyph" aria-hidden="true">✦</span>
+                </div>
+                <p class="loader__title">Initializing Kyo</p>
+                <p id="model-progress-text" class="loader__sub">Loading model…</p>
+                <div class="loader__track">
+                    <div id="model-progress-bar" class="loader__bar"></div>
+                </div>
+                <p class="loader__note">Qwen2.5-0.5B · runs entirely in your browser</p>
+            </div>
+        </div>
+
+        <!-- Chat panel — hidden until model is ready -->
+        <div class="glass-panel hidden" id="glass-panel">
+
+            <header class="topbar">
+                <div class="topbar__brand">
+                    <span class="topbar__dot" aria-hidden="true"></span>
+                    <span class="topbar__name">Kyo</span>
+                    <span class="topbar__chip">Qwen2.5-0.5B</span>
+                </div>
+                <div class="topbar__actions">
+                    <button id="clear-chat" class="ghost-btn" title="Clear conversation" aria-label="Clear conversation" type="button">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M9 6V4h6v2"/>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <div id="messages" class="messages" aria-live="polite" aria-label="Conversation">
+                <div class="empty" id="empty-state">
+                    <span class="empty__glyph" aria-hidden="true">✦</span>
+                    <h2 class="empty__title">Hey, I'm Kyo.</h2>
+                    <p class="empty__sub">A small AI running locally in your browser — nothing leaves your device.</p>
+                </div>
+            </div>
+
+            <div class="bar">
+                <form id="chat-form" class="composer" autocomplete="off">
+                    <textarea
+                        id="user-input"
+                        class="composer__field"
+                        placeholder="Ask anything…"
+                        rows="1"
+                        spellcheck="true"
+                        aria-label="Your message"
+                        required
+                    ></textarea>
+                    <button id="send-btn" class="composer__btn" type="submit" title="Send" aria-label="Send">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </form>
+                <p class="bar__hint">No data leaves your browser — WebAssembly inference</p>
+            </div>
+
+        </div>
+    </main>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
