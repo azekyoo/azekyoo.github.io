@@ -455,7 +455,12 @@ if (window.visualViewport) {
 }
 
 const COMMANDS = {
-  '.clear': 'reset conversation memory',
+  '.clear':   'reset conversation memory',
+  '.copy':    'copy last reply to clipboard',
+  '.help':    'list all commands',
+  '.ping':    'test connection to AI server',
+  '.time':    'show current date and time',
+  '.weather': 'show current weather',
 };
 
 let typingBuffer  = '';
@@ -466,6 +471,7 @@ let busy          = false;
 let msgHistory    = [];
 let historyIdx    = -1;
 let savedDraft    = '';
+let lastReply     = '';
 
 function getCommandMatch() {
   if (!typingBuffer.startsWith('.')) return null;
@@ -571,6 +577,7 @@ async function sendMessage(message) {
     const data  = await res.json();
     if (!res.ok) throw new Error(data.error || 'Request failed');
     const reply = data.reply?.trim() || '…';
+    lastReply = reply;
     chatHistory.push({ role: 'user', content: message });
     chatHistory.push({ role: 'assistant', content: reply });
     if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
@@ -593,16 +600,75 @@ document.addEventListener('click', kbRefocus);
 document.addEventListener('touchend', kbRefocus, { passive: true });
 kb.focus();
 
+async function runCommand(cmd) {
+  switch (cmd) {
+    case '.clear':
+      chatHistory = [];
+      showBubble('memory cleared.', true, true);
+      break;
+
+    case '.help':
+      showBubble(Object.entries(COMMANDS).map(([k, v]) => `${k} — ${v}`).join('\n'), true);
+      break;
+
+    case '.copy':
+      if (!lastReply) { showBubble('nothing to copy yet.', true, true); break; }
+      try {
+        await navigator.clipboard.writeText(lastReply);
+        showBubble('copied!', true, true);
+      } catch {
+        showBubble('clipboard access denied.', true, true);
+      }
+      break;
+
+    case '.ping': {
+      const t0 = performance.now();
+      try {
+        await fetch(WORKER_URL + '/ping');
+        const ms = Math.round(performance.now() - t0);
+        showBubble(`pong — ${ms}ms`, true);
+      } catch {
+        showBubble('worker unreachable.', true, true);
+      }
+      break;
+    }
+
+    case '.time': {
+      const now = new Date();
+      const date = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      showBubble(`${date} · ${time}`, true);
+      break;
+    }
+
+    case '.weather': {
+      busy = true;
+      setKyoState('thinking');
+      showThinking();
+      try {
+        const res  = await fetch(WORKER_URL + '/weather');
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const { city, condition, temperature, feels_like, humidity } = data;
+        setKyoState('replying');
+        showBubble(`${condition} in ${city}.\n${temperature} · feels ${feels_like} · ${humidity} humidity.`, true);
+      } catch {
+        setKyoState('idle');
+        showBubble('could not fetch weather.', true, true);
+      } finally {
+        busy = false;
+      }
+      break;
+    }
+  }
+}
+
 function handleEnter() {
   const msg = typingBuffer.trim();
   if (!msg || busy) return;
 
   if (COMMANDS[msg]) {
-    if (msg === '.clear') {
-      chatHistory = [];
-      localStorage.removeItem('kyo-history');
-      showBubble('memory cleared.', true, true);
-    }
+    runCommand(msg);
     typingBuffer = '';
     kb.value = '';
     updateDisplay();

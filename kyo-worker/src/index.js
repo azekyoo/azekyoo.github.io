@@ -1,6 +1,6 @@
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
@@ -78,6 +78,26 @@ export default {
 
     if (url.pathname === '/ping') {
       return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (url.pathname === '/weather') {
+      try {
+        const result = await runTool('get_weather', request);
+        return new Response(JSON.stringify(result), {
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    if (url.pathname === '/time') {
+      const result = await runTool('get_current_datetime', request);
+      return new Response(JSON.stringify({ result }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
