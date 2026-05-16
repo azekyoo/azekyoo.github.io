@@ -719,6 +719,13 @@ function handleEnter() {
 kb.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+  if (e.key === 'Escape') {
+    clearTimeout(bubbleTimer); clearTimeout(typeTimer);
+    speechBubble.classList.remove('visible');
+    setKyoState('idle');
+    return;
+  }
+
   if (e.key === 'Enter') { e.preventDefault(); handleEnter(); return; }
 
   if (e.key === 'Tab') {
