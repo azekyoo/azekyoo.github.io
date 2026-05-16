@@ -460,6 +460,7 @@ const COMMANDS = {
   '.help':    'list all commands',
   '.math':    'evaluate a math expression',
   '.ping':    'test connection to AI server',
+  '.roll':    'roll a number from 1 to 100',
   '.time':    'show current date and time',
   '.weather': 'show current weather',
 };
@@ -643,6 +644,10 @@ async function runCommand(cmd) {
       } catch {
         showBubble('clipboard access denied.', true, true);
       }
+      break;
+
+    case '.roll':
+      showBubble(`${Math.floor(Math.random() * 100) + 1}`, true, true);
       break;
 
     case '.ping': {
