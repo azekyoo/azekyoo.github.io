@@ -824,10 +824,12 @@ kb.addEventListener('keydown', e => {
 
   if (e.key === 'ArrowUp') {
     if (!msgHistory.length) return;
+    e.preventDefault();
     if (historyIdx === -1) savedDraft = typingBuffer;
     historyIdx = Math.min(historyIdx + 1, msgHistory.length - 1);
     typingBuffer = msgHistory[historyIdx];
     kb.value = typingBuffer;
+    kb.setSelectionRange(typingBuffer.length, typingBuffer.length);
     updateDisplay();
     updateGhost();
     return;
@@ -835,9 +837,11 @@ kb.addEventListener('keydown', e => {
 
   if (e.key === 'ArrowDown') {
     if (historyIdx === -1) return;
+    e.preventDefault();
     historyIdx--;
     typingBuffer = historyIdx === -1 ? savedDraft : msgHistory[historyIdx];
     kb.value = typingBuffer;
+    kb.setSelectionRange(typingBuffer.length, typingBuffer.length);
     updateDisplay();
     updateGhost();
     return;
