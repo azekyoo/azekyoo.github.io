@@ -649,16 +649,65 @@ async function sendMessage(message) {
       body: JSON.stringify({ message, history: chatHistory }),
     });
 
-    const data  = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
-    const reply = data.reply?.trim() || '…';
+    if (!res.ok || !res.body) throw new Error('stream unavailable');
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf     = '';
+    let reply   = '';
+    let started = false;
+
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') break outer;
+
+        let chunk;
+        try { chunk = JSON.parse(raw); } catch { continue; }
+
+        if (chunk.error) throw new Error(chunk.error);
+        if (!chunk.response) continue;
+
+        if (!started) {
+          started = true;
+          setKyoState('replying');
+          clearTimeout(bubbleTimer);
+          clearTimeout(typeTimer);
+          speechBubble.textContent = '';
+          speechBubble.classList.remove('speech-bubble--alert');
+          speechBubble.classList.add('visible');
+        }
+        reply += chunk.response;
+        speechBubble.textContent = reply;
+      }
+    }
+
+    reply = reply.trim() || '…';
     lastReply = reply;
+    speechBubble.textContent = reply;
+
     chatHistory.push({ role: 'user', content: message });
     chatHistory.push({ role: 'assistant', content: reply });
     if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
 
-    setKyoState('replying');
-    showBubble(reply);
+    if (!started) {
+      setKyoState('replying');
+      showBubble('…', true);
+    } else {
+      bubbleTimer = setTimeout(() => {
+        speechBubble.classList.remove('visible');
+        setKyoState('idle');
+      }, 5000);
+    }
+
   } catch {
     setKyoState('idle');
     showBubble('…', true);

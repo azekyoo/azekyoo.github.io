@@ -43,29 +43,32 @@ async function runTool(name, request) {
   }
 
   if (name === 'get_weather') {
-    const lat = request.cf?.latitude  ?? 48.8566;
-    const lon = request.cf?.longitude ?? 2.3522;
+    const lat  = request.cf?.latitude  ?? 48.8566;
+    const lon  = request.cf?.longitude ?? 2.3522;
     const city = request.cf?.city ?? 'unknown location';
-
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    const url  = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
       `&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,relativehumidity_2m` +
       `&temperature_unit=celsius&windspeed_unit=kmh`;
-
     const res  = await fetch(url);
     const data = await res.json();
     const cur  = data.current;
-
     return {
       city,
-      condition:    WMO[cur.weathercode] ?? 'unknown',
-      temperature:  `${Math.round(cur.temperature_2m)}°C`,
-      feels_like:   `${Math.round(cur.apparent_temperature)}°C`,
-      humidity:     `${cur.relativehumidity_2m}%`,
-      wind:         `${Math.round(cur.windspeed_10m)} km/h`,
+      condition:   WMO[cur.weathercode] ?? 'unknown',
+      temperature: `${Math.round(cur.temperature_2m)}°C`,
+      feels_like:  `${Math.round(cur.apparent_temperature)}°C`,
+      humidity:    `${cur.relativehumidity_2m}%`,
+      wind:        `${Math.round(cur.windspeed_10m)} km/h`,
     };
   }
 
   return { error: 'unknown tool' };
+}
+
+const enc = new TextEncoder();
+const sseDone = enc.encode('data: [DONE]\n\n');
+function sseChunk(text) {
+  return enc.encode(`data: ${JSON.stringify({ response: text })}\n\n`);
 }
 
 export default {
@@ -123,57 +126,96 @@ export default {
       { role: 'user', content: message },
     ];
 
-    try {
-      const first = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-        messages,
-        tools: TOOLS,
-        max_tokens: 200,
-      });
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
 
-      // Collect tool calls — model sometimes puts them in tool_calls, sometimes in response text
-      let toolCalls = first.tool_calls || [];
-      if (!toolCalls.length && first.response?.includes('"arguments"')) {
-        try {
-          toolCalls = first.response.trim().split('\n')
-            .map(l => { try { return JSON.parse(l.trim()); } catch { return null; } })
-            .filter(t => t?.name);
-        } catch {}
-      }
+    // Return the stream immediately; fill it in the background
+    const response = new Response(readable, {
+      headers: { ...CORS, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    });
 
-      if (toolCalls.length) {
-        const toolMessages = [
-          ...messages,
-          { role: 'assistant', content: first.response || JSON.stringify(toolCalls[0]) },
-        ];
+    (async () => {
+      try {
+        const aiStream = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+          messages,
+          tools: TOOLS,
+          max_tokens: 200,
+          stream: true,
+        });
 
-        for (const call of toolCalls) {
-          const result = await runTool(call.name, request);
-          toolMessages.push({
-            role: 'tool',
-            content: typeof result === 'string' ? result : JSON.stringify(result),
-          });
+        const reader  = aiStream.getReader();
+        const decoder = new TextDecoder();
+        let buf           = '';
+        let mode          = null; // 'text' | 'tool'
+        let toolCalls     = [];
+        let assistantText = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') continue;
+
+            let chunk;
+            try { chunk = JSON.parse(raw); } catch { continue; }
+
+            if (chunk.tool_calls?.length && mode !== 'text') {
+              mode = 'tool';
+              toolCalls.push(...chunk.tool_calls);
+            } else if (chunk.response && mode !== 'tool') {
+              mode = 'text';
+              assistantText += chunk.response;
+              await writer.write(sseChunk(chunk.response));
+            }
+          }
         }
 
-        const second = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-          messages: toolMessages,
-          max_tokens: 120,
-        });
+        if (mode === 'tool' && toolCalls.length) {
+          // Execute tools then stream the final answer
+          const toolMessages = [
+            ...messages,
+            { role: 'assistant', content: assistantText || JSON.stringify(toolCalls[0]) },
+          ];
+          for (const call of toolCalls) {
+            const result = await runTool(call.name, request);
+            toolMessages.push({
+              role: 'tool',
+              content: typeof result === 'string' ? result : JSON.stringify(result),
+            });
+          }
 
-        const reply = second.response?.trim() || toolMessages.filter(m => m.role === 'tool').map(m => m.content).join(' ');
-        return new Response(JSON.stringify({ reply }), {
-          headers: { ...CORS, 'Content-Type': 'application/json' },
-        });
+          const finalStream = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+            messages: toolMessages,
+            stream: true,
+            max_tokens: 120,
+          });
+          const finalReader = finalStream.getReader();
+          while (true) {
+            const { done, value } = await finalReader.read();
+            if (done) break;
+            await writer.write(value); // forward raw SSE bytes (already formatted)
+          }
+        } else {
+          await writer.write(sseDone);
+        }
+
+      } catch (err) {
+        try {
+          await writer.write(enc.encode(`data: ${JSON.stringify({ error: err.message })}\n\n`));
+          await writer.write(sseDone);
+        } catch {}
+      } finally {
+        try { await writer.close(); } catch {}
       }
+    })();
 
-      return new Response(JSON.stringify({ reply: first.response }), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
-
-    } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 500,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
-    }
+    return response;
   },
 };
