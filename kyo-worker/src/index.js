@@ -170,10 +170,35 @@ export default {
               mode = 'tool';
               toolCalls.push(...chunk.tool_calls);
             } else if (chunk.response && mode !== 'tool') {
-              mode = 'text';
               assistantText += chunk.response;
-              await writer.write(sseChunk(chunk.response));
+
+              if (mode === 'text') {
+                await writer.write(sseChunk(chunk.response));
+              } else {
+                // Peek: if first non-whitespace char isn't '{', it's text — flush buffer
+                const trimmed = assistantText.trimStart();
+                if (trimmed && !trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+                  mode = 'text';
+                  await writer.write(sseChunk(assistantText));
+                  assistantText = '';
+                }
+                // else: keep buffering — might be a tool call JSON
+              }
             }
+          }
+        }
+
+        // Resolve undecided mode: buffered text that might be a tool call JSON
+        if (mode === null && assistantText) {
+          const lines = assistantText.trim().split('\n').filter(Boolean);
+          for (const line of lines) {
+            try {
+              const tc = JSON.parse(line);
+              if (tc?.name) { mode = 'tool'; toolCalls.push(tc); }
+            } catch {}
+          }
+          if (mode !== 'tool') {
+            await writer.write(sseChunk(assistantText));
           }
         }
 
