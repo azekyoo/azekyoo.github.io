@@ -525,6 +525,7 @@ let bubbleTimer   = null;
 let typeTimer     = null;
 let chatHistory   = [];
 let busy          = false;
+let abortCtrl     = null;
 let msgHistory    = [];
 let historyIdx    = -1;
 let savedDraft    = '';
@@ -588,12 +589,17 @@ function setKyoState(s) {
 function showThinking() {
   clearTimeout(bubbleTimer);
   clearTimeout(typeTimer);
+  const lockedW = Math.min(340, window.innerWidth - 40);
+  speechBubble.style.width = lockedW + 'px';
+  speechBubble.style.minWidth = lockedW + 'px';
   speechBubble.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
   speechBubble.classList.remove('speech-bubble--alert');
   speechBubble.classList.add('visible');
 }
 
 function showBubble(text, instant = false, alert = false) {
+  speechBubble.style.width = '';
+  speechBubble.style.minWidth = '';
   if (text && text !== '…') lastReply = text;
   clearTimeout(bubbleTimer);
   clearTimeout(typeTimer);
@@ -642,20 +648,65 @@ async function sendMessage(message) {
   setKyoState('thinking');
   showThinking();
 
+  let renderQueue = '';
+  let renderTimer = null;
+  let streamDone  = false;
+  let started     = false;
+  let reply       = '';
+  let cursorEl    = null;
+  const CHAR_MS   = 20;
+
+  function finalize() {
+    renderTimer = null;
+    if (cursorEl) { cursorEl.remove(); cursorEl = null; }
+    reply = reply.trim() || '…';
+    lastReply = reply;
+    speechBubble.textContent = reply;
+    chatHistory.push({ role: 'user', content: message });
+    chatHistory.push({ role: 'assistant', content: reply });
+    if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
+    bubbleTimer = setTimeout(() => {
+      speechBubble.classList.remove('visible');
+      speechBubble.style.width = '';
+      speechBubble.style.minWidth = '';
+      setKyoState('idle');
+    }, 5000);
+    busy = false;
+  }
+
+  function drainQueue() {
+    if (renderQueue) {
+      const char = renderQueue[0];
+      renderQueue = renderQueue.slice(1);
+      reply += char;
+      const span = document.createElement('span');
+      span.className = 'char-stream';
+      span.textContent = char;
+      if (cursorEl) speechBubble.insertBefore(span, cursorEl);
+      else speechBubble.appendChild(span);
+      renderTimer = setTimeout(drainQueue, CHAR_MS);
+    } else if (streamDone) {
+      finalize();
+    } else {
+      renderTimer = null;
+    }
+  }
+
   try {
+    abortCtrl = new AbortController();
     const res = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, history: chatHistory }),
+      signal: abortCtrl.signal,
     });
+    abortCtrl = null;
 
     if (!res.ok || !res.body) throw new Error('stream unavailable');
 
     const reader  = res.body.getReader();
     const decoder = new TextDecoder();
-    let buf     = '';
-    let reply   = '';
-    let started = false;
+    let buf = '';
 
     outer: while (true) {
       const { done, value } = await reader.read();
@@ -672,7 +723,6 @@ async function sendMessage(message) {
 
         let chunk;
         try { chunk = JSON.parse(raw); } catch { continue; }
-
         if (chunk.error) throw new Error(chunk.error);
         if (!chunk.response) continue;
 
@@ -681,38 +731,36 @@ async function sendMessage(message) {
           setKyoState('replying');
           clearTimeout(bubbleTimer);
           clearTimeout(typeTimer);
-          speechBubble.textContent = '';
+          speechBubble.innerHTML = '';
           speechBubble.classList.remove('speech-bubble--alert');
-          speechBubble.classList.add('visible');
+          // width already locked by showThinking()
+          cursorEl = document.createElement('span');
+          cursorEl.className = 'stream-cursor';
+          speechBubble.appendChild(cursorEl);
         }
-        reply += chunk.response;
-        speechBubble.textContent = reply;
+
+        renderQueue += chunk.response;
+        if (!renderTimer) renderTimer = setTimeout(drainQueue, 0);
       }
     }
 
-    reply = reply.trim() || '…';
-    lastReply = reply;
-    speechBubble.textContent = reply;
-
-    chatHistory.push({ role: 'user', content: message });
-    chatHistory.push({ role: 'assistant', content: reply });
-    if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
-
-    if (!started) {
-      setKyoState('replying');
-      showBubble('…', true);
-    } else {
-      bubbleTimer = setTimeout(() => {
-        speechBubble.classList.remove('visible');
-        setKyoState('idle');
-      }, 5000);
+    streamDone = true;
+    if (!renderTimer) {
+      if (started) finalize();
+      else { setKyoState('replying'); showBubble('…', true); busy = false; }
     }
+    // else drainQueue will call finalize() once queue empties
 
-  } catch {
-    setKyoState('idle');
-    showBubble('…', true);
-  } finally {
+  } catch (err) {
+    clearTimeout(renderTimer);
+    renderTimer = null;
+    if (cursorEl) { cursorEl.remove(); cursorEl = null; }
+    abortCtrl = null;
     busy = false;
+    if (err?.name !== 'AbortError') {
+      setKyoState('idle');
+      showBubble('…', true);
+    }
   }
 }
 
@@ -859,6 +907,7 @@ kb.addEventListener('keydown', e => {
     clearTimeout(bubbleTimer); clearTimeout(typeTimer);
     speechBubble.classList.remove('visible');
     setKyoState('idle');
+    if (abortCtrl) { abortCtrl.abort(); abortCtrl = null; }
     return;
   }
 
