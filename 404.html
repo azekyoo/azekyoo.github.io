@@ -97,15 +97,22 @@
                     #ffc898);
         }
 
-        .text {
+        .glass-base {
             display: block;
-            color: white;
-            animation: wipe-in var(--duration) infinite var(--easing);
-            mask: linear-gradient(to right, white, white 45%, black, 55%, black);
-            mask-composite: exclude;
-            mask-mode: luminance;
-            mask-size: 300% 100%;
-            mask-position: 100% 0px;
+            background: linear-gradient(
+                160deg,
+                rgba(255, 255, 255, 0.95) 0%,
+                rgba(255, 255, 255, 0.55) 25%,
+                rgba(255, 255, 255, 0.18) 50%,
+                rgba(255, 255, 255, 0.55) 72%,
+                rgba(255, 255, 255, 0.90) 100%
+            );
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter:
+                drop-shadow(0 2px 8px rgba(255, 255, 255, 0.65))
+                drop-shadow(0 0 28px rgba(190, 215, 255, 0.40));
         }
 
         .wipe-in {
@@ -270,7 +277,7 @@
         rgba(251, 7, 217, 1) 90%,
         rgba(255, 0, 0, 1) 100%
     );">
-        <span class="text">
+        <span class="glass-base">
             404 - Page Not Found
         </span>
         <span class="wipe-in">
