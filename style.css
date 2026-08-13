@@ -199,9 +199,9 @@ body {
     box-sizing: border-box;
     margin-left: auto;
     flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 9px 22px;
     padding: 15px 18px;
     border-radius: 18px;
     background: var(--surface);
@@ -781,13 +781,18 @@ body {
     .about-card {
         margin-left: 0;
         width: 100%;
-        flex-direction: column;
-        gap: 9px;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 12px;
         padding: 14px 16px;
         border-radius: 16px;
     }
 
-    .about-row { font-size: 12.5px; white-space: normal; }
+    .about-row { font-size: 12.5px; white-space: normal; min-width: 0; }
+}
+
+/* Very narrow phones: two columns would crowd, so stack. */
+@media screen and (max-width: 360px) {
+    .about-card { grid-template-columns: 1fr; }
     .hero-text h1 { font-size: 27px; }
     .tagline { font-size: 13.5px; }
 
