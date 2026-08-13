@@ -177,6 +177,12 @@ body {
     display: block;
 }
 
+/* Shrink rather than wrap, so the avatar always stays beside the name. */
+.hero-text {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 .hero-text h1 {
     margin: 0;
     font-size: 34px;
@@ -788,16 +794,9 @@ body {
     }
 
     .about-row { font-size: 12.5px; white-space: normal; min-width: 0; }
-}
 
-/* Very narrow phones: two columns would crowd, so stack. */
-@media screen and (max-width: 360px) {
-    .about-card { grid-template-columns: 1fr; }
     .hero-text h1 { font-size: 27px; }
     .tagline { font-size: 13.5px; }
-
-    .primary-links,
-    .repo-grid { grid-template-columns: 1fr; gap: 14px; }
 
     .link-plate   { padding: 18px; }
     .repo-card    { padding: 17px 18px 15px; }
@@ -809,6 +808,18 @@ body {
 
     .article-emoji { width: 38px; height: 38px; flex-basis: 38px; font-size: 19px; }
     .article-title { font-size: 13.5px; }
+}
+
+/* Two plates side by side get squeezed to one word per line well before the
+   phone breakpoint, so they go single-column earlier than the rest. */
+@media screen and (max-width: 900px) {
+    .primary-links,
+    .repo-grid { grid-template-columns: 1fr; gap: 14px; }
+}
+
+/* Very narrow phones: two columns in the about card would crowd, so stack. */
+@media screen and (max-width: 360px) {
+    .about-card { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
