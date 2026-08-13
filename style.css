@@ -795,6 +795,8 @@ body {
 
     .about-row { font-size: 12.5px; white-space: normal; min-width: 0; }
 
+    .repo-grid { grid-template-columns: 1fr; gap: 14px; }
+
     .hero-text h1 { font-size: 27px; }
     .tagline { font-size: 13.5px; }
 
@@ -810,11 +812,10 @@ body {
     .article-title { font-size: 13.5px; }
 }
 
-/* Two plates side by side get squeezed to one word per line well before the
-   phone breakpoint, so they go single-column earlier than the rest. */
+/* The plates carry icon + text + arrow in a row, so they crowd well before the
+   phone breakpoint. The repo cards are text only and hold up to 760px. */
 @media screen and (max-width: 900px) {
-    .primary-links,
-    .repo-grid { grid-template-columns: 1fr; gap: 14px; }
+    .primary-links { grid-template-columns: 1fr; gap: 14px; }
 }
 
 /* Very narrow phones: two columns in the about card would crowd, so stack. */
