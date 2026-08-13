@@ -1,98 +1,331 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AZeKyo</title>
+    <title>azekyo</title>
+    <meta name="description"
+        content="azekyo — teaching machines to read how you feel. Award-winning emotion-aware robotics research, open-source tools, Zenn articles and pinned projects.">
+    <meta name="theme-color" content="#c9bfe0">
+    <meta name="author" content="azekyo">
+    <link rel="canonical" href="https://azekyo.com/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="azekyo">
+    <meta property="og:title" content="azekyo">
+    <meta property="og:description"
+        content="Teaching machines to read how you feel. Award-winning emotion-aware robotics research, open-source tools, Zenn articles and pinned projects.">
+    <meta property="og:url" content="https://azekyo.com/">
+    <meta property="og:image" content="https://azekyo.com/assets/ski.jpg">
+    <meta property="og:image:alt" content="azekyo">
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="azekyo">
+    <meta name="twitter:description"
+        content="Teaching machines to read how you feel. Award-winning emotion-aware robotics research, open-source tools, Zenn articles and pinned projects.">
+    <meta name="twitter:image" content="https://azekyo.com/assets/ski.jpg">
+
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/x-icon" href="assets/purplespin.gif">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
 </head>
 
 <body>
 
-    <div class="frame">
-        <!-- <button class="custom-btn btn-1">Read More</button>
-          <button class="custom-btn btn-2">Read More</button>
-          <button class="custom-btn btn-3"><span>Read More</span></button>
-          <button class="custom-btn btn-4"><span>Read More</span></button>
-          <button class="custom-btn btn-5"><span>Read More</span></button>
-          <button class="custom-btn btn-6"><span>Read More</span></button>
-
-          <button class="custom-btn btn-7" onclick="window.location.href='/skins';"><span>Skins</span></button>
-
-          <button class="custom-btn btn-8"><span>Read More</span></button>
-          <button class="custom-btn btn-9">Read More</button>
-          <button class="custom-btn btn-10">Read More</button>
-          <button class="custom-btn btn-11">Read More<div class="dot"></div></button>
-          <button class="custom-btn btn-12"><span>Click!</span><span>Read More</span></button>
-          <button class="custom-btn btn-13">Read More</button>
-          <button class="custom-btn btn-14">Read More</button>
-          <button class="custom-btn btn-15">Read More</button>
-          <button class="custom-btn btn-16">Read More</button> -->
-    </div>
-
     <div class="background-overlay"></div>
-    <div class="center-container"></div>
 
-    <div class="dflex">
+    <main class="page">
 
-        <a href="https://osu.ppy.sh/users/16824737/osu" target="_blank" class="osu social-card" data-label="osu!">
-            <img src="assets/osu.png" style="width: 6em;">
-        </a>
+        <!-- ─── Header ─────────────────────────────────────────────── -->
+        <header class="hero">
+            <div class="avatar">
+                <img src="assets/ski.jpg" alt="azekyo">
+            </div>
+            <div class="hero-text">
+                <h1>azekyo</h1>
+                <p class="tagline">Teaching machines to read how you feel.</p>
+            </div>
 
-        <a href="https://steamcommunity.com/id/azekyo/" target="_blank" class="steam social-card" data-label="Steam">
-            <img src="assets/steam.png">
-        </a>
+            <aside class="about-card">
+                <span class="about-row">
+                    <span class="about-icon" aria-hidden="true">📍</span>
+                    <span>Tokyo, Japan</span>
+                </span>
+                <span class="about-row">
+                    <span class="about-icon" aria-hidden="true">🤖</span>
+                    <span><a href="https://www.ux-xu.com/" target="_blank" rel="noopener">Yukai Engineering</a></span>
+                </span>
+                <span class="about-row">
+                    <span class="about-icon" aria-hidden="true">💬</span>
+                    <span>FR · EN · JP</span>
+                </span>
+                <span class="about-row">
+                    <span class="about-icon" aria-hidden="true">📬</span>
+                    <!-- address split across attributes so naive scrapers don't pick it up -->
+                    <button class="copy-email" type="button" data-user="victor.gaspard.mail"
+                        data-domain="gmail.com" aria-label="Copy my email address">Copy email</button>
+                </span>
+            </aside>
+        </header>
 
-        <a href="https://discord.com/users/293116120301305856" target="_blank" class="discord social-card" data-label="Discord">
-            <img src="assets/discord.png">
-        </a>
+        <!-- ─── Primary links ──────────────────────────────────────── -->
+        <section class="primary-links">
 
-        <!-- Uncomment if needed
-        <a href="https://ubisoftconnect.com/en-US/profile/AZeKyo.KWZ" target="_blank" class="ubisoft social-card" data-label="Ubisoft">
-            <img src="assets/ubisoft.png">
-        </a> -->
+            <a class="link-plate gh" href="https://github.com/azekyoo" target="_blank" rel="noopener">
+                <span class="plate-icon">
+                    <img src="assets/github.png" alt="">
+                </span>
+                <span class="plate-body">
+                    <span class="plate-title">GitHub</span>
+                    <span class="plate-sub">@azekyoo — robotics, tools, and emotions</span>
+                </span>
+                <span class="plate-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h13M13 6l6 6-6 6" />
+                    </svg>
+                </span>
+            </a>
 
-        <a href="https://github.com/azekyoo" target="_blank" class="github social-card" data-label="GitHub">
-            <img src="assets/github.png" style="width: 3.5em;">
-        </a>
+            <a class="link-plate zenn" href="https://zenn.dev/gaspard" target="_blank" rel="noopener">
+                <span class="plate-icon">
+                    <svg class="zenn-mark" viewBox="0 0 44 44" aria-hidden="true">
+                        <path d="M2.4 39.5h9.2c.66 0 1.27-.35 1.6-.93L34.6 4.6c.36-.6-.07-1.36-.78-1.36h-8.63
+                                 c-.6 0-1.14.3-1.45.8L1.63 38.5c-.28.45.04 1 .57 1z" />
+                        <path d="M32.3 39.5h8.6c.6 0 1.1-.5 1.1-1.12V21.4c0-.54-.7-.75-1-.3L31.4 38.5
+                                 c-.28.45.05 1 .58 1z" />
+                    </svg>
+                </span>
+                <span class="plate-body">
+                    <span class="plate-title">Zenn</span>
+                    <span class="plate-sub">@gaspard — articles &amp; technical write-ups</span>
+                </span>
+                <span class="plate-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h13M13 6l6 6-6 6" />
+                    </svg>
+                </span>
+            </a>
 
-        <a href="https://account.ankama.com/fr/profil-ankama/AZeKyo-6087" target="_blank" class="dofus social-card" data-label="Dofus">
-            <img src="assets/dofus.png" style="width: 2em;">
-        </a>
+        </section>
 
-        <a href="https://www.youtube.com/@azekyo" target="_blank" class="youtube social-card" data-label="YouTube">
-            <img src="assets/youtube.png" style="width: 6em;">
-        </a>
+        <!-- ─── Research ───────────────────────────────────────────── -->
+        <section class="research">
 
-        <a href="https://www.twitch.tv/azekyoo" target="_blank" class="twitch social-card" data-label="Twitch">
-            <img src="assets/twitch.png">
-        </a>
+            <div class="section-head">
+                <h2>Research</h2>
+                <span class="section-link">APRIS 2024 · IPSJ</span>
+            </div>
 
-        <a href="https://docs.google.com/document/d/1mOmuQk2ByUqRb9f8SrHmOQomu0zxX-WkezUbbEEwDP4/edit?usp=sharing"
-                target="_blank" class="pc social-card" data-label="My PC">
-            <img src="assets/pc.png">
-        </a>
+            <article class="paper-card">
 
-    </div>
+                <div class="paper-badges">
+                    <span class="badge">🏆 Best Paper Award — APRIS 2024</span>
+                    <span class="badge">🎖 IPSJ Yamashita Memorial Research Award 2025</span>
+                </div>
+
+                <h3 class="paper-title">Improving the Speech Pattern of an Emotion-aware Robot using EEG and HRV
+                    for Emotion Estimation</h3>
+
+                <p class="paper-authors"><strong>Victor Gaspard</strong>, Tipporn Laohakangvalvit, Kaoru Suzuki,
+                    Midori Sugaya</p>
+
+                <p class="paper-venue">Asia Pacific Conference on Robot IoT System Development and Platform
+                    (APRIS), vol. 2024, pp. 15–21 · Information Processing Society of Japan · Dec 27, 2024</p>
+
+                <div class="paper-links">
+                    <a class="pill" href="https://ipsj.ixsq.nii.ac.jp/records/241863" target="_blank"
+                        rel="noopener">IPSJ record ↗</a>
+                    <a class="pill" href="assets/papers/apris2024-emotion-aware-robot.pdf" target="_blank"
+                        rel="noopener">PDF ↗</a>
+                    <a class="pill" href="https://www.sigemb.jp/APRIS/2024/2024/11/07/awards/" target="_blank"
+                        rel="noopener">APRIS awards ↗</a>
+                    <a class="pill" href="https://www.ipsj.or.jp/award/yamashita2025.html" target="_blank"
+                        rel="noopener">Yamashita award ↗</a>
+                </div>
+
+                <!-- Required by IPSJ copyright regulation art.5-5 when an author self-hosts the PDF. -->
+                <p class="paper-notice">The copyright of this material is retained by the Information Processing
+                    Society of Japan (IPSJ). It is posted here by the author under the IPSJ copyright regulation.
+                    Users wishing to reproduce, adapt or redistribute it must comply with the Copyright Law of
+                    Japan and the Code of Ethics of the IPSJ.</p>
+
+            </article>
+        </section>
+
+        <!-- ─── Pinned repositories ────────────────────────────────── -->
+        <section class="repos">
+
+            <div class="section-head">
+                <h2>Pinned repositories</h2>
+                <a class="section-link" href="https://github.com/azekyoo?tab=repositories" target="_blank"
+                    rel="noopener">View all</a>
+            </div>
+
+            <div class="repo-grid">
+
+                <a class="repo-card" style="--lang: 53, 114, 165"
+                    href="https://github.com/azekyoo/NerveGear" target="_blank" rel="noopener">
+                    <span class="repo-name">NerveGear</span>
+                    <span class="repo-desc">Hands-free game controller driven by body signals — blinks, head
+                        tilt, finger count and forearm EMG, routed over MQTT into virtual key input.</span>
+                    <span class="repo-meta"><i class="dot py"></i>Python</span>
+                </a>
+
+                <a class="repo-card" style="--lang: 214, 191, 44"
+                    href="https://github.com/azekyoo/frost" target="_blank" rel="noopener">
+                    <span class="repo-name">frost</span>
+                    <span class="repo-desc">Fully customizable acrylic/glass terminal for Windows with built-in AI
+                        agent mode.</span>
+                    <span class="repo-meta"><i class="dot js"></i>JavaScript</span>
+                </a>
+
+                <a class="repo-card" style="--lang: 53, 114, 165"
+                    href="https://github.com/azekyoo/osu-fun-lobby-bot" target="_blank"
+                    rel="noopener">
+                    <span class="repo-name">osu-fun-lobby-bot</span>
+                    <span class="repo-desc">A bot for osu! lobbies that automates beatmap and mod selection with
+                        custom objectives.</span>
+                    <span class="repo-meta"><i class="dot py"></i>Python</span>
+                </a>
+
+                <a class="repo-card" style="--lang: 23, 134, 0"
+                    href="https://github.com/azekyoo/AI-Army" target="_blank" rel="noopener">
+                    <span class="repo-name">AI-Army</span>
+                    <span class="repo-desc">Unity battle simulation — <em>The Unending War of the 4 Elements</em>
+                        — with AI-driven unit behaviour and custom ShaderLab visuals.</span>
+                    <span class="repo-meta"><i class="dot cs"></i>C#</span>
+                </a>
+
+            </div>
+        </section>
+
+        <!-- ─── Zenn articles ──────────────────────────────────────── -->
+        <section class="articles">
+
+            <div class="section-head">
+                <h2>Writing</h2>
+                <a class="section-link" href="https://zenn.dev/gaspard" target="_blank" rel="noopener">All on
+                    Zenn</a>
+            </div>
+
+            <div class="article-grid">
+
+                <a class="article-card" style="--accent: 122, 144, 168"
+                    href="https://zenn.dev/gaspard/articles/22d41eb496778d" target="_blank"
+                    rel="noopener">
+                    <span class="article-emoji" aria-hidden="true">🎮</span>
+                    <span class="article-body">
+                        <span class="article-title" lang="ja">まばたき・首の傾き・筋電位でマイクラを操作する自作コントローラーを作った話</span>
+                        <span class="article-meta">
+                            <time datetime="2026-08-05">Aug 5, 2026</time>
+                            <span class="sep">·</span>
+                            <span>Zenn</span>
+                        </span>
+                    </span>
+                </a>
+
+                <a class="article-card" style="--accent: 193, 105, 79"
+                    href="https://zenn.dev/gaspard/articles/94d1bae143548f" target="_blank"
+                    rel="noopener">
+                    <span class="article-emoji" aria-hidden="true">📦</span>
+                    <span class="article-body">
+                        <span class="article-title" lang="ja">はじめてロボット向けOpenWrtパッケージを作って学んだこと</span>
+                        <span class="article-meta">
+                            <time datetime="2026-05-13">May 13, 2026</time>
+                            <span class="sep">·</span>
+                            <span>Zenn</span>
+                        </span>
+                    </span>
+                </a>
+
+            </div>
+        </section>
+
+        <footer class="page-foot">
+            <a href="/links">Games &amp; socials →</a>
+        </footer>
+
+    </main>
 
     <script>
-        // Hide loading overlay after page loads
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                const loadingOverlay = document.querySelector('.loading-overlay');
-                if (loadingOverlay) {
-                    loadingOverlay.classList.add('fade-out');
-                    setTimeout(function() {
-                        loadingOverlay.style.display = 'none';
-                    }, 500);
+        // Reveal cards as they scroll into view, staggered within their own grid.
+        (function () {
+            const cards = document.querySelectorAll('.paper-card, .repo-card, .article-card');
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            if (reduced || !('IntersectionObserver' in window)) return;
+
+            cards.forEach(c => c.classList.add('reveal'));
+
+            const io = new IntersectionObserver((entries, obs) => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    const el = entry.target;
+                    const i = [...el.parentElement.children].indexOf(el);
+                    setTimeout(() => el.classList.remove('reveal'), i * 60);
+                    obs.unobserve(el);
+                });
+                // Positive bottom margin: start revealing just before the card scrolls into view,
+                // so it is never sitting empty on screen waiting for its turn.
+            }, { threshold: 0, rootMargin: '0px 0px 15% 0px' });
+
+            cards.forEach(c => io.observe(c));
+        })();
+
+        // Copy-to-clipboard email, assembled at click time.
+        (function () {
+            const btn = document.querySelector('.copy-email');
+            if (!btn) return;
+
+            const label = btn.textContent;
+            let timer = null;
+
+            function feedback(text, ok) {
+                btn.textContent = text;
+                btn.classList.toggle('copied', ok);
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    btn.textContent = label;
+                    btn.classList.remove('copied');
+                }, 1800);
+            }
+
+            function legacyCopy(value) {
+                const ta = document.createElement('textarea');
+                ta.value = value;
+                ta.setAttribute('readonly', '');
+                ta.style.cssText = 'position:absolute;left:-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                document.body.removeChild(ta);
+                return ok;
+            }
+
+            btn.addEventListener('click', () => {
+                const address = btn.dataset.user + '@' + btn.dataset.domain;
+
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(address)
+                        .then(() => feedback('Copied ✓', true))
+                        .catch(() => feedback(legacyCopy(address) ? 'Copied ✓' : address, true));
+                } else {
+                    // No clipboard API: fall back, and show the address so it can be selected by hand.
+                    feedback(legacyCopy(address) ? 'Copied ✓' : address, true);
                 }
-            }, 1500); // Show loading for 1.5 seconds minimum
-        });
+            });
+        })();
     </script>
+
 </body>
 
 </html>
