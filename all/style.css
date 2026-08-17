@@ -1,0 +1,358 @@
+/* ─── Manrope, self-hosted (SIL Open Font License) ────────────────── */
+
+/* latin */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../assets/fonts/manrope-400-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../assets/fonts/manrope-400-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../assets/fonts/manrope-500-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../assets/fonts/manrope-500-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../assets/fonts/manrope-600-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../assets/fonts/manrope-600-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../assets/fonts/manrope-700-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* latin-ext */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../assets/fonts/manrope-700-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ─── Variables ──────────────────────────────────────────────────── */
+:root {
+    --surface: rgba(255, 255, 255, 0.22);
+    --border:  rgba(255, 255, 255, 0.55);
+    --ink:     rgba(35, 38, 46, 0.92);
+    --ink-dim: rgba(35, 38, 46, 0.55);
+    --ink-faint: rgba(35, 38, 46, 0.38);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ─── Base ───────────────────────────────────────────────────────── */
+body {
+    /* Fixed so the gradient does not scroll away on a long page. */
+    background: linear-gradient(135deg, #add8e6, #f2a6d2) fixed;
+    background-size: 500% 500%;
+    animation: gradientAnimation 7s ease infinite;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    font-family: 'Manrope', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--ink);
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+}
+
+@keyframes gradientAnimation {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ─── Layout ─────────────────────────────────────────────────────── */
+.page {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 72px 26px 40px;
+}
+
+.head {
+    text-align: center;
+    margin-bottom: 46px;
+    opacity: 0;
+    animation: fadeInUp 1s ease forwards;
+    animation-delay: 0.15s;
+}
+
+.head h1 {
+    margin: 0;
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.head .tagline {
+    margin: 8px 0 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-dim);
+}
+
+@keyframes fadeInUp {
+    0%   { opacity: 0; transform: translateY(14px); }
+    100% { opacity: 1; transform: translateY(0);    }
+}
+
+.group { margin-bottom: 40px; }
+
+.group-head {
+    margin: 0 0 14px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(275px, 1fr));
+    gap: 14px;
+}
+
+/* ─── Tiles (liquid glass) ───────────────────────────────────────── */
+.tile {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    box-shadow:
+        0 4px 24px rgba(255, 255, 255, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.15);
+    text-decoration: none;
+    color: inherit;
+    overflow: hidden;
+    will-change: transform, opacity;
+    transition:
+        transform    0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        box-shadow   0.4s ease,
+        background   0.4s ease,
+        border-color 0.4s ease,
+        opacity      0.5s ease;
+}
+
+/* Liquid glass inner highlight + bottom reflection */
+.tile::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+        linear-gradient(160deg,
+            rgba(255, 255, 255, 0.55) 0%,
+            rgba(255, 255, 255, 0.15) 40%,
+            transparent 70%,
+            rgba(255, 255, 255, 0.08) 100%);
+    pointer-events: none;
+}
+
+.tile > * { position: relative; z-index: 2; }
+
+.tile-icon {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    line-height: 1;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                background 0.4s ease,
+                filter 0.4s ease;
+}
+
+.tile-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.tile-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.tile-sub {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink-dim);
+}
+
+.tile-path {
+    margin-left: auto;
+    align-self: flex-start;
+    flex: 0 0 auto;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.3s ease, transform 0.3s ease, color 0.3s ease;
+}
+
+/* Scroll reveal — JS removes this class, staggered per grid. */
+.tile.reveal {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+}
+
+/* ─── Hover / focus: glow in the tile's own colour ───────────────── */
+.tile:hover,
+.tile:focus-visible {
+    outline: none;
+    transform: translateY(-4px) scale(1.015);
+    background: rgba(var(--glow), 0.12);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow:
+        0 12px 40px rgba(var(--glow), 0.45),
+        0 0 0 1px rgba(var(--glow), 0.3);
+}
+
+.tile:hover .tile-icon,
+.tile:focus-visible .tile-icon {
+    transform: scale(1.12) rotate(-5deg);
+    background: rgba(var(--glow), 0.22);
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.18)) brightness(1.08) saturate(1.2);
+}
+
+.tile:hover .tile-path,
+.tile:focus-visible .tile-path {
+    opacity: 1;
+    transform: translateX(0);
+    color: rgba(35, 38, 46, 0.6);
+}
+
+.tile:active {
+    transform: translateY(-2px) scale(1.005);
+    transition-duration: 0.1s;
+}
+
+/* ─── Footer (back to home) ──────────────────────────────────────── */
+.page-foot {
+    margin-top: 12px;
+    padding-bottom: 20px;
+    text-align: center;
+}
+
+.page-foot a {
+    font-family: 'Manrope', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: rgba(35, 38, 46, 0.42);
+    transition: color 0.3s ease;
+}
+
+.page-foot a:hover { color: rgba(35, 38, 46, 1); }
+
+.page-foot a:focus-visible {
+    outline: 2px solid rgba(35, 38, 46, 0.45);
+    outline-offset: 3px;
+    border-radius: 4px;
+    color: rgba(35, 38, 46, 1);
+}
+
+/* ─── Background overlay ─────────────────────────────────────────── */
+.background-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    filter: brightness(1.4);
+    z-index: -1;
+    image-rendering: high-quality;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────── */
+@media screen and (max-width: 720px) {
+    .page { padding: 48px 18px 32px; }
+    .head { margin-bottom: 34px; }
+    .head h1 { font-size: 27px; }
+    .grid { grid-template-columns: 1fr; gap: 12px; }
+    .tile { padding: 14px 16px; }
+    /* No room for it beside the text on a narrow screen. */
+    .tile-path { display: none; }
+    .tile:hover { transform: translateY(-2px) scale(1.01); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body { animation: none; }
+    .head { animation: none; opacity: 1; }
+    .tile, .tile-icon, .tile-path { transition: none; }
+    .tile:hover, .tile:focus-visible, .tile:active { transform: none; }
+}
