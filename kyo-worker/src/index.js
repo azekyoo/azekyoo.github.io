@@ -4,6 +4,10 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Cloudflare retired the plain @cf/meta/llama-3.1-8b-instruct alias on
+// 2026-05-30; -fast is the same family and still takes tools + stream.
+const MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
+
 const SYSTEM = `You are Kyo, a personal AI assistant. Be direct, calm, and conversational. \
 Always reply — never refuse or say you have nothing to say. \
 Keep replies to 1-2 short sentences. No fluff, no poetry, no dramatic language. \
@@ -136,7 +140,7 @@ export default {
 
     (async () => {
       try {
-        const aiStream = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+        const aiStream = await env.AI.run(MODEL, {
           messages,
           tools: TOOLS,
           max_tokens: 200,
@@ -216,7 +220,7 @@ export default {
             });
           }
 
-          const finalStream = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+          const finalStream = await env.AI.run(MODEL, {
             messages: toolMessages,
             stream: true,
             max_tokens: 120,
