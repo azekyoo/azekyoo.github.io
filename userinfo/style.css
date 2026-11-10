@@ -34,7 +34,7 @@ body {
 .crt {
     pointer-events: none; position: fixed; inset: 0; z-index: 50;
     background: repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 1px, transparent 1px 3px);
-    mix-blend-mode: multiply;
+    will-change: transform; /* own GPU layer: drawn once, not repainted with the globe */
 }
 .crt::after {
     content: ''; position: absolute; inset: 0;
@@ -43,9 +43,10 @@ body {
 .scanline {
     pointer-events: none; position: fixed; left: 0; right: 0; height: 120px; z-index: 51;
     background: linear-gradient(transparent, rgba(0,255,136,.05), transparent);
+    top: 0; will-change: transform;
     animation: scan 6s linear infinite;
 }
-@keyframes scan { from { top: -120px; } to { top: 100vh; } }
+@keyframes scan { from { transform: translateY(-120px); } to { transform: translateY(100vh); } }
 
 /* Boot */
 .boot {
@@ -94,7 +95,7 @@ body {
 
 .panel {
     position: relative; border: 1px solid var(--g-dim); background: var(--panel);
-    padding: 14px; backdrop-filter: blur(2px); min-width: 0;
+    padding: 14px; min-width: 0;
     clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
 }
 .panel::before {
@@ -145,7 +146,7 @@ body {
     pointer-events: none; position: absolute; left: 50%; top: 50%;
     width: var(--d, 300px); height: var(--d, 300px); transform: translate(-50%, -50%); border-radius: 50%;
     background: conic-gradient(from 0deg, rgba(0,255,136,.22), transparent 18%);
-    animation: spin 4s linear infinite; mix-blend-mode: screen;
+    animation: spin 4s linear infinite;
 }
 @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
 .corner { position: absolute; width: 22px; height: 22px; border: 2px solid var(--g); }

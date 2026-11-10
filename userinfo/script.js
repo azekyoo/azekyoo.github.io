@@ -5,7 +5,7 @@ const $ = (s) => document.querySelector(s);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pad = (n, l = 2) => String(n).padStart(l, '0');
 const ua = navigator.userAgent;
-const state = { geo: null, gpu: null, battery: null, adblock: false, rttMs: null, fp: null };
+const state = { geo: null, gpu: null, battery: null, adblock: false, rttMs: null, fp: null, canvasFp: '', wg2: false };
 
 /* ---------- small helpers ---------- */
 
@@ -179,7 +179,7 @@ const Globe = (() => {
     let rot = [0, -18, 0];
     let land = null, borders = null, countries = null, hit = null;
     let target = null, anim = null, locked = false, lockT = 0;
-    let drag = null, lastInteract = 0;
+    let drag = null, lastInteract = 0, lastD = 0;
 
     function resize() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -260,7 +260,8 @@ const Globe = (() => {
 
         const r = R * zoom;
         proj.rotate(rot).scale(r).translate([w / 2, h / 2]);
-        wrap.style.setProperty('--d', Math.min(r * 2, Math.max(w, h) * 1.2) + 'px');
+        const d = Math.round(Math.min(r * 2, Math.max(w, h) * 1.2));
+        if (d !== lastD) { lastD = d; wrap.style.setProperty('--d', d + 'px'); }
         ctx.clearRect(0, 0, w, h);
 
         // glow
@@ -381,7 +382,6 @@ function renderGeo(geo) {
         return;
     }
     if ((geo.ip || '').includes(':')) $('#ipAddress').classList.add('v6');
-    scramble('ipAddress', geo.ip || '?', 1200);
     set('isp', geo.isp || '—');
     set('asn', geo.asn || '—');
     set('city', geo.city || '—');
@@ -391,8 +391,16 @@ function renderGeo(geo) {
     if (geo.lat != null && geo.lon != null) {
         const lat = (+geo.lat).toFixed(4), lon = (+geo.lon).toFixed(4);
         set('coords', `${lat}, ${lon}`);
-        scramble('latOut', lat, 2600);
-        scramble('lonOut', lon, 2600);
+    }
+}
+
+// Runs right at the reveal: only the animated bits, so the globe fly-in has the frame budget to itself
+function revealGeo(geo) {
+    if (!geo) return;
+    scramble('ipAddress', geo.ip || '?', 1200);
+    if (geo.lat != null && geo.lon != null) {
+        scramble('latOut', (+geo.lat).toFixed(4), 2600);
+        scramble('lonOut', (+geo.lon).toFixed(4), 2600);
         $('#lockOut').textContent = 'ACQUIRING';
         Globe.lockOn(+geo.lat, +geo.lon, `${geo.city || '?'}, ${geo.cc || ''}`);
         log(`triangulated ${geo.city}, ${geo.country}`, 'ok');
@@ -464,7 +472,6 @@ async function renderDevice() {
     } else set('batTxt', 'no api');
 
     // GPU
-    state.gpu = getGPU();
     set('gpu', state.gpu ? `${state.gpu.renderer}\n${state.gpu.vendor}` : 'WebGL disabled');
     if (state.gpu) log('gpu exposed: ' + state.gpu.renderer.slice(0, 48), state.gpu.unmasked ? 'warn' : '');
 
@@ -507,7 +514,7 @@ function renderScreens() {
     const chromeY = Math.max(0, oh - vh - chromeX);
     place($('#scrViewport'), wx + chromeX, wy + chromeY, vw, vh);
     set('screenTxt', `${sw}×${sh}`);
-    set('dprTxt', `DPR ${window.devicePixelRatio}×`);
+    set('dprTxt', `DPR ${+window.devicePixelRatio.toFixed(2)}×`);
     set('depthTxt', `${screen.colorDepth}-bit`);
     set('orientTxt', screen.orientation ? screen.orientation.type.toUpperCase() : (innerWidth > innerHeight ? 'LANDSCAPE' : 'PORTRAIT'));
 }
@@ -516,7 +523,7 @@ async function renderFingerprint() {
     const parts = [
         ua, navigator.language, (navigator.languages || []).join(), screen.width, screen.height, screen.colorDepth,
         devicePixelRatio, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.hardwareConcurrency,
-        navigator.deviceMemory, navigator.maxTouchPoints, state.gpu?.renderer, state.gpu?.vendor, canvasFingerprint(),
+        navigator.deviceMemory, navigator.maxTouchPoints, state.gpu?.renderer, state.gpu?.vendor, state.canvasFp,
     ];
     const raw = parts.join('|');
     const h = (hash(raw) + hash(raw, 1337)).toUpperCase();
@@ -579,8 +586,7 @@ function renderThreat() {
 
 async function renderCaps() {
     const has = (o, k) => { try { return k in o; } catch { return false; } };
-    let wg2 = false;
-    try { wg2 = !!document.createElement('canvas').getContext('webgl2'); } catch {}
+    const wg2 = state.wg2;
     const dnt = navigator.doNotTrack === '1' || window.doNotTrack === '1';
     const caps = [
         ['HTTPS', location.protocol === 'https:'],
@@ -739,20 +745,31 @@ async function boot(geoPromise) {
 (async function main() {
     $('#sessionId').textContent = Math.random().toString(16).slice(2, 10).toUpperCase();
     const geoPromise = getGeo();
+    // heavy probes (WebGL contexts, canvas readback) run behind the boot screen, not during the reveal
+    const probes = sleep(300).then(() => {
+        state.gpu = getGPU();
+        state.canvasFp = canvasFingerprint();
+        try { state.wg2 = !!document.createElement('canvas').getContext('webgl2'); } catch {}
+    });
     const adPromise = detectAdBlock();
     startLive();
     log('probe initialised');
-    await boot(geoPromise);
 
-    state.geo = await geoPromise;
-    state.adblock = await adPromise;
-    log(state.adblock ? 'ad-block shield detected' : 'no ad-block shield', state.adblock ? 'ok' : 'warn');
+    // Fill every panel while the boot screen still covers the HUD
+    const ready = Promise.all([geoPromise, probes, adPromise]).then(async ([geo, , adblock]) => {
+        state.geo = geo;
+        state.adblock = adblock;
+        log(adblock ? 'ad-block shield detected' : 'no ad-block shield', adblock ? 'ok' : 'warn');
+        await renderDevice();
+        renderGeo(geo);
+        renderNet();
+        await renderFingerprint();
+        renderCaps();
+        await renderRaw();
+        return geo;
+    });
+    await boot(ready);
 
-    await renderDevice();
-    renderGeo(state.geo);
-    renderNet();
-    await renderFingerprint();
-    renderThreat();
-    renderCaps();
-    renderRaw();
+    revealGeo(state.geo);
+    setTimeout(renderThreat, 3000); // gauge sweeps in once the globe has locked
 })();
