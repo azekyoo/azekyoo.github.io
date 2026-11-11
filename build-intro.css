@@ -104,7 +104,7 @@ html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
 
 /* ─── Layers ──────────────────────────────────────────────────────── */
 /* #bi-layer sits in document coordinates (cursors, tags, guides scroll with the
-   page); #bi-hud is fixed to the screen (log, skip, shine). */
+   page); #bi-hud is fixed to the screen (log, skip). */
 #bi-layer,
 #bi-hud {
     pointer-events: none;
@@ -234,22 +234,6 @@ html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
 @keyframes bi-ripple {
     from { opacity: 0.9; transform: scale(0.4); }
     to   { opacity: 0;   transform: scale(5); }
-}
-
-.bi-shine {
-    position: absolute;
-    top: -20%;
-    left: 0;
-    width: 40%;
-    height: 140%;
-    background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%);
-    mix-blend-mode: soft-light;
-    transform: translateX(-120%) skewX(-12deg);
-    animation: bi-shine 1.1s cubic-bezier(0.55, 0, 0.35, 1) forwards;
-}
-
-@keyframes bi-shine {
-    to { transform: translateX(320%) skewX(-12deg); }
 }
 
 /* Build log */

@@ -360,10 +360,6 @@
             log('● wiring interactions', 'phase');
             await pool(boxes.filter(b => b.matches('.link-plate, .repo-card, .article-card')).slice(0, agents.length), hover);
             if (skipped) return;
-            const shine = document.createElement('div');
-            shine.className = 'bi-shine';
-            hud.appendChild(shine);
-            setTimeout(() => shine.remove(), 1200);
         }
 
         // Let the wireframe → glass transitions finish before handing the units back.
