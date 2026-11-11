@@ -101,10 +101,8 @@ html.bi .bi-ch.on { opacity: 1; }
 html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
 
 /* ─── Layers ──────────────────────────────────────────────────────── */
-/* #bi-layer sits in document coordinates (cursors, tags, guides scroll with the
-   page); #bi-hud is fixed to the screen (log). */
-#bi-layer,
-#bi-hud {
+/* #bi-layer sits in document coordinates, so cursors, tags and guides scroll with the page. */
+#bi-layer {
     pointer-events: none;
     font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
     transition: opacity 0.6s ease;
@@ -119,15 +117,7 @@ html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
     z-index: 9999;
 }
 
-#bi-hud {
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    overflow: hidden;
-}
-
-#bi-layer.gone,
-#bi-hud.gone { opacity: 0; }
+#bi-layer.gone { opacity: 0; }
 
 .bi-guide {
     position: absolute;
@@ -234,74 +224,6 @@ html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
     to   { opacity: 0;   transform: scale(5); }
 }
 
-/* Build log */
-.bi-log {
-    position: absolute;
-    left: 16px;
-    bottom: 16px;
-    width: 330px;
-    max-width: calc(100% - 32px);
-    box-sizing: border-box;
-    padding: 10px 12px 9px;
-    border-radius: 10px;
-    background: rgba(22, 20, 34, 0.86);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 10px 30px rgba(20, 10, 50, 0.28);
-    color: rgba(255, 255, 255, 0.82);
-    font-size: 10.5px;
-    line-height: 1.6;
-    animation: bi-log-in 0.4s ease-out;
-}
-
-@keyframes bi-log-in {
-    from { opacity: 0; transform: translateY(10px); }
-}
-
-.bi-log-head {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 4px;
-    color: rgba(255, 255, 255, 0.45);
-}
-
-.bi-log-lines { height: calc(1.6em * 6); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
-.bi-log-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: bi-line-in 0.2s ease-out; }
-.bi-log-line.phase { color: #fff; font-weight: 600; }
-.bi-log-line.ok { color: #6ee7a8; font-weight: 600; }
-.bi-log-line b { font-weight: 600; }
-
-@keyframes bi-line-in {
-    from { opacity: 0; transform: translateX(-6px); }
-}
-
-.bi-progress {
-    height: 2px;
-    margin-top: 7px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.12);
-    overflow: hidden;
-}
-
-.bi-progress i {
-    display: block;
-    height: 100%;
-    width: 0;
-    background: linear-gradient(90deg, #7c5cff, #ff5c8a, #18b8a0, #ff9f1c);
-    transition: width 0.4s ease;
-}
-
-/* Between scroll builds the log tucks away. */
-.bi-log { transition: opacity 0.45s ease, transform 0.45s ease; }
-
-#bi-hud.idle .bi-log {
-    opacity: 0;
-    transform: translateY(10px);
-    pointer-events: none;
-}
-
 @media screen and (max-width: 760px) {
-    .bi-log { width: auto; right: 16px; font-size: 9.5px; }
-    .bi-log-lines { height: calc(1.6em * 4); }
     .bi-cur-status { display: none; }
 }

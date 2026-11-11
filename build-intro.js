@@ -24,10 +24,6 @@
         { name: 'juno', color: '#f08a00' },
     ];
 
-    const SNIPPETS = ['backdrop-filter: blur(24px)', 'border-radius: 20px', 'background: var(--surface)',
-        'box-shadow: inset 0 1px 0 #fffb', 'saturate(1.8)', 'border: 1px solid var(--border)'];
-
-    const t0 = performance.now();
     let skipped = false;   // set at teardown; stops any animation still in flight
     let finished = false;
     const wakers = new Set();
@@ -37,9 +33,7 @@
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const easeInOut = p => p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
     const easeOut = p => 1 - Math.pow(1 - p, 3);
-    const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const tagOf = el => el.tagName.toLowerCase() + '.' + el.classList[0];
-    const secs = () => ((performance.now() - t0) / 1000).toFixed(1) + 's';
     const inView = el => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; };
 
     // Rect in document coordinates, so positions stay right while the page scrolls.
@@ -124,29 +118,7 @@
     const sizeLayer = () => { layer.style.height = document.documentElement.scrollHeight + 'px'; };
     sizeLayer();
 
-    const hud = document.createElement('div');
-    hud.id = 'bi-hud';
-    hud.innerHTML =
-        '<div class="bi-log"><div class="bi-log-head"><span>build · azekyo.com</span><span class="bi-time">0.0s</span></div>' +
-        '<div class="bi-log-lines"></div><div class="bi-progress"><i></i></div></div>';
-    document.body.appendChild(hud);
-    const logLines = hud.querySelector('.bi-log-lines');
-    const progressBar = hud.querySelector('.bi-progress i');
-    const timeEl = hud.querySelector('.bi-time');
-
     root.classList.add('bi-ready');
-
-    // ─── Log ────────────────────────────────────────────────────────
-    function log(html, cls) {
-        const line = document.createElement('div');
-        line.className = 'bi-log-line' + (cls ? ' ' + cls : '');
-        line.innerHTML = html;
-        logLines.appendChild(line);
-        while (logLines.children.length > (innerWidth <= 760 ? 4 : 6)) logLines.firstChild.remove();
-    }
-    const say = (a, msg) => log(`<b style="color:${a.color}">${a.name}</b> ${msg}`);
-    const progress = () => { progressBar.style.width = Math.round((1 - live.size / units.length) * 100) + '%'; };
-    const clock = setInterval(() => { timeEl.textContent = secs(); }, 100);
 
     // ─── Agents (cursors) ───────────────────────────────────────────
     const ARROW = '<svg viewBox="0 0 18 18"><path d="M2 1.5 L2 15 L5.6 11.6 L8.2 17 L10.6 15.9 L8.1 10.7 L13.2 10.5 Z" ' +
@@ -220,7 +192,6 @@
         await move(a, r.left, r.top);
         if (skipped) return;
         press(a, true);
-        say(a, `scaffold <span style="opacity:.7">&lt;${tag}&gt;</span>`);
         el.style.clipPath = 'inset(0 100% 100% 0)';
         el.classList.add('bi-drawn');
         await tween(clamp((r.width + r.height) * 0.7, 220, 420), p => {
@@ -249,8 +220,6 @@
         setStatus(a, 'writing');
         await move(a, first.left + scrollX, first.bottom + scrollY);
         if (skipped) return;
-        const text = el.textContent.replace(/\s+/g, ' ').trim();
-        say(a, `write <span style="opacity:.7">"${esc(text.length > 30 ? text.slice(0, 30) + '…' : text)}"</span>`);
         let shown = 0, caret = null;
         await tween(clamp(chars.length * 7, 110, 300), p => {
             const n = Math.ceil(p * chars.length);
@@ -287,7 +256,6 @@
         if (skipped) return;
         press(a, true);
         ripple(a, x, y);
-        say(a, `.${el.classList[0]} { <span style="opacity:.7">${SNIPPETS[Math.floor(Math.random() * SNIPPETS.length)]}</span> }`);
         styleNow(el);
         await wait(110);
         press(a, false);
@@ -300,7 +268,6 @@
         setStatus(a, ':hover');
         await move(a, r.left + r.width * rand(0.4, 0.75), r.top + r.height * 0.55);
         if (skipped) return;
-        say(a, `.${el.classList[0]}:hover <span style="opacity:.7">{ translateY(-6px) }</span>`);
         el.classList.add('bi-hover');
         await wait(380);
         el.classList.remove('bi-hover');
@@ -316,7 +283,7 @@
     const queue = [];
     const firstSet = new Set();
     const said = new Set();
-    let seq = 0, busy = 0, idleTimer = 0, signals = [];
+    let seq = 0, signals = [];
 
     const once = (key, fn) => { if (!said.has(key)) { said.add(key); fn(); } };
     const notify = () => signals.splice(0).forEach(f => f());
@@ -336,7 +303,7 @@
         return best < 0 ? null : queue.splice(best, 1)[0];
     }
 
-    function enqueue(list, fromScroll) {
+    function enqueue(list) {
         if (!list.length) return;
         list.forEach(u => {
             pending.delete(u);
@@ -351,15 +318,6 @@
             }));
             if (isBox) push(STAGE.paint, u, a => paint(a, u), () => st.drawn && !st.typesLeft, () => unitStyled(u));
         });
-        if (fromScroll) {
-            const where = [...new Set(list.map(u => {
-                const sec = u.closest('section, header, footer');
-                return sec ? '.' + sec.classList[0] : 'page';
-            }))].join(' ');
-            log(`● scroll → building ${where}`, 'phase');
-        }
-        clearTimeout(idleTimer);
-        hud.classList.remove('idle');
         notify();
     }
 
@@ -372,27 +330,18 @@
     }
 
     function firstViewBuilt() {
-        log(`✓ viewport built in ${secs()}` + (pending.size ? ' · scroll for more' : ''), 'ok');
         const demo = units.filter(u => u.matches('.link-plate, .repo-card, .article-card') && inView(u)).slice(0, agents.length);
         demo.forEach(u => push(STAGE.hover, u, a => hover(a, u), () => true));
         notify();
     }
 
     function runTask(a, t) {
-        if (t.stage === STAGE.type) once('type', () => log('● writing content', 'phase'));
         if (t.stage === STAGE.paint) once('paint', () => {
-            log('● applying design tokens', 'phase');
             canvas.classList.add('gone');
             layer.querySelectorAll('.bi-guide').forEach(g => g.classList.add('off'));
             setTimeout(() => canvas.remove(), 1500);
         });
-        if (t.stage === STAGE.hover) once('hover', () => log('● wiring interactions', 'phase'));
         return t.run(a);
-    }
-
-    function idleSoon() {
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => { if (!busy && !queue.length && !skipped) hud.classList.add('idle'); }, 1600);
     }
 
     async function worker(a, k) {
@@ -404,7 +353,6 @@
                 // another agent → stay around.
                 if (!queue.length) {
                     if (a.present && !a.leaveTimer) a.leaveTimer = setTimeout(() => { a.leaveTimer = 0; leaveOne(a); }, 600);
-                    if (!busy) idleSoon();
                 }
                 await nextSignal();
                 await wait(k * 90);
@@ -413,9 +361,7 @@
             clearTimeout(a.leaveTimer);
             a.leaveTimer = 0;
             if (!a.present) arriveOne(a);
-            busy++;
             await runTask(a, task);
-            busy--;
             if (skipped) return;
             if (task.done) task.done();
             notify();
@@ -439,16 +385,13 @@
         });
         const t = unitTags.get(u);
         if (t) setTimeout(() => t.remove(), 600);
-        progress();
         if (!live.size && !finished) {
-            log(`✓ all sections built in ${secs()} · 0 errors`, 'ok');
             setTimeout(finish, 1400);
         }
     }
 
     // ─── Start: what is on screen now; the rest joins as it scrolls in ─
     function start() {
-        log('● scaffolding layout', 'phase');
         const pr = page.getBoundingClientRect();
         const pad = parseFloat(getComputedStyle(page).paddingLeft);
         [pr.left + pad, pr.right - pad].forEach(x => {
@@ -460,7 +403,7 @@
         });
         const firstUnits = units.filter(inView);
         firstUnits.forEach(u => firstSet.add(u));
-        enqueue(firstUnits, false);
+        enqueue(firstUnits);
         agents.forEach(worker);
     }
 
@@ -470,7 +413,7 @@
         scrollQueued = true;
         requestAnimationFrame(() => {
             scrollQueued = false;
-            if (!skipped) enqueue([...pending].filter(inView), true);
+            if (!skipped) enqueue([...pending].filter(inView));
         });
     }
 
@@ -483,8 +426,6 @@
         skipped = true;
         wakers.forEach(w => w());
         notify();
-        clearInterval(clock);
-        clearTimeout(idleTimer);
         agents.forEach(a => clearTimeout(a.leaveTimer));
 
         [...live].forEach(handBack);
@@ -493,8 +434,7 @@
 
         canvas.classList.add('gone');
         layer.classList.add('gone');
-        hud.classList.add('gone');
-        setTimeout(() => { canvas.remove(); layer.remove(); hud.remove(); }, 1500);
+        setTimeout(() => { canvas.remove(); layer.remove(); }, 1500);
 
         removeEventListener('scroll', onScroll);
         removeEventListener('resize', onResize);
