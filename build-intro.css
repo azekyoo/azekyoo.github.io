@@ -1,16 +1,20 @@
 /* ─── Build intro ────────────────────────────────────────────────────
-   Fake "agents build the site" loading sequence for the home page.
-   Everything here is scoped to html.bi (set in <head> before first paint)
-   and is removed when the sequence ends or is skipped, so the finished page
-   is the normal style.css page untouched. Remove this file, build-intro.js
-   and the two <head> lines to drop the intro entirely. */
+   Fake "agents build the site" sequence for the home page. The page is split
+   into units (each card, plus the loose headings); a unit carries .bi-z until
+   the agents have built it. The visible units are built on load, the rest as
+   they scroll into view. Everything is scoped to html.bi (set in <head> before
+   first paint); once every unit is built the classes and inline changes are
+   removed and the page is the normal style.css page, untouched.
+   Remove this file, build-intro.js and the <head> lines to drop the intro. */
 
 /* Before the script has wrapped the text, keep the page hidden on a blank canvas. */
 html.bi:not(.bi-ready) body { background: #f7f6fb; }
 html.bi:not(.bi-ready) .page { visibility: hidden; }
 
-/* No interaction while building: any click / key / wheel skips instead. */
-html.bi .page { pointer-events: none; }
+/* No interaction during the opening build (a click skips instead), and none
+   on a unit that is still being built. */
+html.bi-intro .page,
+html.bi .bi-z { pointer-events: none; }
 
 /* The page's own entrance animations are replaced by the build. bi-done stays on
    after the intro so they don't replay once it ends. */
@@ -36,7 +40,7 @@ html.bi .reveal { opacity: 1; transform: none; }
 #bi-canvas.gone { opacity: 0; }
 
 /* ─── Boxes: undrawn → wireframe → glass ──────────────────────────── */
-html.bi :is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card) {
+html.bi .bi-z:is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card) {
     transition:
         background 0.8s ease,
         box-shadow 0.8s ease,
@@ -46,11 +50,12 @@ html.bi :is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article
         transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-html.bi :is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card):not(.bi-drawn) {
+html.bi .bi-z:is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card):not(.bi-drawn) {
     clip-path: inset(0 100% 100% 0);
 }
 
-html.bi :is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card, .badge, .pill):not(.bi-styled) {
+html.bi .bi-z:is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card):not(.bi-styled),
+html.bi .bi-z :is(.badge, .pill):not(.bi-styled) {
     background: transparent;
     border-style: dashed;
     border-color: rgba(70, 60, 120, 0.38);
@@ -59,16 +64,16 @@ html.bi :is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article
     -webkit-backdrop-filter: none;
 }
 
-html.bi :is(.about-card, .link-plate, .paper-card, .repo-card, .article-card)::before {
+html.bi .bi-z:is(.about-card, .link-plate, .paper-card, .repo-card, .article-card)::before {
     transition: opacity 0.8s ease;
 }
 
-html.bi :is(.about-card, .link-plate, .paper-card, .repo-card, .article-card):not(.bi-styled)::before {
+html.bi .bi-z:is(.about-card, .link-plate, .paper-card, .repo-card, .article-card):not(.bi-styled)::before {
     opacity: 0;
 }
 
-html.bi .badge:not(.bi-styled) { color: var(--ink-soft); }
-html.bi :is(.badge, .pill) { transition: background 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease, color 0.6s ease; }
+html.bi .bi-z .badge:not(.bi-styled) { color: var(--ink-soft); }
+html.bi .bi-z :is(.badge, .pill) { transition: background 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease, color 0.6s ease; }
 
 /* Agent "hover" demo in the motion pass. Mirrors the real :hover rules. */
 html.bi :is(.link-plate, .repo-card, .article-card, .paper-card).bi-hover {
@@ -83,11 +88,11 @@ html.bi .paper-card.bi-hover   { box-shadow: 0 14px 44px rgba(214, 168, 42, 0.38
 html.bi .link-plate.bi-hover .plate-arrow { transform: translateX(4px); color: var(--ink); }
 
 /* ─── Media: icons, avatar, emoji pop in during the style pass ────── */
-html.bi :is(.avatar img, .plate-icon img, .zenn-mark, .plate-arrow, .about-icon, .article-emoji, .dot) {
+html.bi .bi-z :is(.avatar img, .plate-icon img, .zenn-mark, .plate-arrow, .about-icon, .article-emoji, .dot) {
     transition: opacity 0.35s ease, transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.4s ease;
 }
 
-html.bi :is(.avatar img, .plate-icon img, .zenn-mark, .plate-arrow, .about-icon, .article-emoji, .dot):not(.bi-pop) {
+html.bi .bi-z :is(.avatar img, .plate-icon img, .zenn-mark, .plate-arrow, .about-icon, .article-emoji, .dot):not(.bi-pop) {
     opacity: 0;
     transform: scale(0.3);
 }
@@ -97,17 +102,34 @@ html.bi .bi-ch { opacity: 0; }
 html.bi .bi-ch.on { opacity: 1; }
 html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
 
-/* ─── Overlay layer: cursors, tags, guides, log ───────────────────── */
-#bi-layer {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
+/* ─── Layers ──────────────────────────────────────────────────────── */
+/* #bi-layer sits in document coordinates (cursors, tags, guides scroll with the
+   page); #bi-hud is fixed to the screen (log, skip, shine). */
+#bi-layer,
+#bi-hud {
     pointer-events: none;
     font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
     transition: opacity 0.6s ease;
 }
 
-#bi-layer.gone { opacity: 0; }
+#bi-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    overflow: hidden;
+    z-index: 9999;
+}
+
+#bi-hud {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    overflow: hidden;
+}
+
+#bi-layer.gone,
+#bi-hud.gone { opacity: 0; }
 
 .bi-guide {
     position: absolute;
@@ -147,6 +169,7 @@ html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
     position: absolute;
     left: 0;
     top: 0;
+    opacity: 0;
     will-change: transform;
     transition: opacity 0.4s ease;
 }
@@ -302,6 +325,17 @@ html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
 }
 
 .bi-skip:hover { color: #23262e; background: #fff; }
+
+/* Between scroll builds the log and skip button tuck away. */
+.bi-log,
+.bi-skip { transition: opacity 0.45s ease, transform 0.45s ease; }
+
+#bi-hud.idle .bi-log,
+#bi-hud.idle .bi-skip {
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+}
 
 @media screen and (max-width: 760px) {
     .bi-log { width: auto; right: 16px; bottom: 54px; font-size: 9.5px; }
