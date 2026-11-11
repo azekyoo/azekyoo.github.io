@@ -29,6 +29,12 @@
     <meta name="twitter:image" content="https://azekyo.com/assets/ski.jpg">
 
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="build-intro.css">
+    <script>
+        // Build intro: skipped for reduced motion or with ?nobuild.
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches && !/[?&]nobuild\b/.test(location.search))
+            document.documentElement.classList.add('bi');
+    </script>
     <link rel="icon" type="image/gif" href="assets/purplespin.gif">
 </head>
 
@@ -321,6 +327,7 @@
             });
         })();
     </script>
+    <script src="build-intro.js"></script>
 
 </body>
 

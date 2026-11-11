@@ -1,0 +1,310 @@
+/* ─── Build intro ────────────────────────────────────────────────────
+   Fake "agents build the site" loading sequence for the home page.
+   Everything here is scoped to html.bi (set in <head> before first paint)
+   and is removed when the sequence ends or is skipped, so the finished page
+   is the normal style.css page untouched. Remove this file, build-intro.js
+   and the two <head> lines to drop the intro entirely. */
+
+/* Before the script has wrapped the text, keep the page hidden on a blank canvas. */
+html.bi:not(.bi-ready) body { background: #f7f6fb; }
+html.bi:not(.bi-ready) .page { visibility: hidden; }
+
+/* No interaction while building: any click / key / wheel skips instead. */
+html.bi .page { pointer-events: none; }
+
+/* The page's own entrance animations are replaced by the build. bi-done stays on
+   after the intro so they don't replay once it ends. */
+html.bi :is(.hero, .primary-links, .research, .repos, .articles, .page-foot),
+html.bi-done :is(.hero, .primary-links, .research, .repos, .articles, .page-foot) {
+    animation: none;
+    opacity: 1;
+}
+
+html.bi .reveal { opacity: 1; transform: none; }
+
+/* ─── Blank canvas that fades away to reveal the gradient ─────────── */
+#bi-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-color: #f7f6fb;
+    background-image: radial-gradient(rgba(70, 60, 120, 0.16) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    transition: opacity 1.4s ease;
+}
+
+#bi-canvas.gone { opacity: 0; }
+
+/* ─── Boxes: undrawn → wireframe → glass ──────────────────────────── */
+html.bi :is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card) {
+    transition:
+        background 0.8s ease,
+        box-shadow 0.8s ease,
+        border-color 0.8s ease,
+        backdrop-filter 0.8s ease,
+        -webkit-backdrop-filter 0.8s ease,
+        transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+html.bi :is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card):not(.bi-drawn) {
+    clip-path: inset(0 100% 100% 0);
+}
+
+html.bi :is(.avatar, .about-card, .link-plate, .paper-card, .repo-card, .article-card, .badge, .pill):not(.bi-styled) {
+    background: transparent;
+    border-style: dashed;
+    border-color: rgba(70, 60, 120, 0.38);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+html.bi :is(.about-card, .link-plate, .paper-card, .repo-card, .article-card)::before {
+    transition: opacity 0.8s ease;
+}
+
+html.bi :is(.about-card, .link-plate, .paper-card, .repo-card, .article-card):not(.bi-styled)::before {
+    opacity: 0;
+}
+
+html.bi .badge:not(.bi-styled) { color: var(--ink-soft); }
+html.bi :is(.badge, .pill) { transition: background 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease, color 0.6s ease; }
+
+/* Agent "hover" demo in the motion pass. Mirrors the real :hover rules. */
+html.bi :is(.link-plate, .repo-card, .article-card, .paper-card).bi-hover {
+    transform: translateY(-6px);
+    background: var(--surface-hover);
+}
+html.bi .gh.bi-hover           { box-shadow: 0 14px 44px rgba(64, 144, 204, 0.45), 0 0 0 1px rgba(64, 144, 204, 0.28); }
+html.bi .zenn.bi-hover         { box-shadow: 0 14px 44px rgba(62, 168, 255, 0.45), 0 0 0 1px rgba(62, 168, 255, 0.28); }
+html.bi .repo-card.bi-hover    { box-shadow: 0 14px 44px rgba(var(--lang), 0.45), 0 0 0 1px rgba(var(--lang), 0.28); }
+html.bi .article-card.bi-hover { box-shadow: 0 14px 44px rgba(var(--accent), 0.45), 0 0 0 1px rgba(var(--accent), 0.28); }
+html.bi .paper-card.bi-hover   { box-shadow: 0 14px 44px rgba(214, 168, 42, 0.38), 0 0 0 1px rgba(214, 168, 42, 0.26); }
+html.bi .link-plate.bi-hover .plate-arrow { transform: translateX(4px); color: var(--ink); }
+
+/* ─── Media: icons, avatar, emoji pop in during the style pass ────── */
+html.bi :is(.avatar img, .plate-icon img, .zenn-mark, .plate-arrow, .about-icon, .article-emoji, .dot) {
+    transition: opacity 0.35s ease, transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.4s ease;
+}
+
+html.bi :is(.avatar img, .plate-icon img, .zenn-mark, .plate-arrow, .about-icon, .article-emoji, .dot):not(.bi-pop) {
+    opacity: 0;
+    transform: scale(0.3);
+}
+
+/* ─── Typed text ──────────────────────────────────────────────────── */
+html.bi .bi-ch { opacity: 0; }
+html.bi .bi-ch.on { opacity: 1; }
+html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
+
+/* ─── Overlay layer: cursors, tags, guides, log ───────────────────── */
+#bi-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+    transition: opacity 0.6s ease;
+}
+
+#bi-layer.gone { opacity: 0; }
+
+.bi-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px dashed rgba(124, 92, 255, 0.35);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.6s ease;
+}
+
+.bi-guide.on { transform: scaleY(1); }
+.bi-guide.off { opacity: 0; }
+
+.bi-tag {
+    position: absolute;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9.5px;
+    line-height: 14px;
+    color: #fff;
+    white-space: nowrap;
+    transform: translateY(-100%);
+    animation: bi-tag-in 0.25s ease-out;
+    transition: opacity 0.5s ease;
+}
+
+.bi-tag.off { opacity: 0; }
+
+@keyframes bi-tag-in {
+    from { opacity: 0; transform: translateY(-60%); }
+    to   { opacity: 1; transform: translateY(-100%); }
+}
+
+.bi-cur {
+    position: absolute;
+    left: 0;
+    top: 0;
+    will-change: transform;
+    transition: opacity 0.4s ease;
+}
+
+.bi-cur svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+    transform-origin: 2px 2px;
+    transition: transform 0.12s ease;
+}
+
+.bi-cur.down svg { transform: scale(0.82); }
+
+.bi-cur-label {
+    position: absolute;
+    left: 14px;
+    top: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.bi-cur-name {
+    padding: 2px 7px 3px;
+    border-radius: 4px 9px 9px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 14px;
+    color: #fff;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.bi-cur-status {
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 9.5px;
+    line-height: 13px;
+    color: rgba(35, 38, 46, 0.78);
+    background: rgba(255, 255, 255, 0.82);
+    white-space: nowrap;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bi-cur-status:empty { display: none; }
+
+.bi-ripple {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border-radius: 50%;
+    border: 2px solid var(--c);
+    animation: bi-ripple 0.6s ease-out forwards;
+}
+
+@keyframes bi-ripple {
+    from { opacity: 0.9; transform: scale(0.4); }
+    to   { opacity: 0;   transform: scale(5); }
+}
+
+.bi-shine {
+    position: absolute;
+    top: -20%;
+    left: 0;
+    width: 40%;
+    height: 140%;
+    background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%);
+    mix-blend-mode: soft-light;
+    transform: translateX(-120%) skewX(-12deg);
+    animation: bi-shine 1.1s cubic-bezier(0.55, 0, 0.35, 1) forwards;
+}
+
+@keyframes bi-shine {
+    to { transform: translateX(320%) skewX(-12deg); }
+}
+
+/* Build log */
+.bi-log {
+    position: absolute;
+    left: 16px;
+    bottom: 16px;
+    width: 330px;
+    max-width: calc(100% - 32px);
+    box-sizing: border-box;
+    padding: 10px 12px 9px;
+    border-radius: 10px;
+    background: rgba(22, 20, 34, 0.86);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(20, 10, 50, 0.28);
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 10.5px;
+    line-height: 1.6;
+    animation: bi-log-in 0.4s ease-out;
+}
+
+@keyframes bi-log-in {
+    from { opacity: 0; transform: translateY(10px); }
+}
+
+.bi-log-head {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.bi-log-lines { height: calc(1.6em * 6); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+.bi-log-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: bi-line-in 0.2s ease-out; }
+.bi-log-line.phase { color: #fff; font-weight: 600; }
+.bi-log-line.ok { color: #6ee7a8; font-weight: 600; }
+.bi-log-line b { font-weight: 600; }
+
+@keyframes bi-line-in {
+    from { opacity: 0; transform: translateX(-6px); }
+}
+
+.bi-progress {
+    height: 2px;
+    margin-top: 7px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.bi-progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #7c5cff, #ff5c8a, #18b8a0, #ff9f1c);
+    transition: width 0.4s ease;
+}
+
+.bi-skip {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 10.5px;
+    color: rgba(35, 38, 46, 0.7);
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(70, 60, 120, 0.18);
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.bi-skip:hover { color: #23262e; background: #fff; }
+
+@media screen and (max-width: 760px) {
+    .bi-log { width: auto; right: 16px; bottom: 54px; font-size: 9.5px; }
+    .bi-log-lines { height: calc(1.6em * 4); }
+    .bi-cur-status { display: none; }
+}
