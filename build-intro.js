@@ -1,6 +1,6 @@
 // Build intro: four fake agents scaffold, write, style and animate the home page
-// on top of the real DOM. Only what is on screen is built on load; the agents come
-// back to build each further part as it scrolls into view. Once every part is built
+// on top of the real DOM. What is on screen is built on load, and every further part
+// joins the same work queue the moment it scrolls into view. Once every part is built
 // the page is handed back untouched.
 (function () {
     const root = document.documentElement;
@@ -28,7 +28,7 @@
         'box-shadow: inset 0 1px 0 #fffb', 'saturate(1.8)', 'border: 1px solid var(--border)'];
 
     const t0 = performance.now();
-    let skipped = false;   // set once everything is being force-finished
+    let skipped = false;   // set at teardown; stops any animation still in flight
     let finished = false;
     const wakers = new Set();
 
@@ -70,17 +70,6 @@
             };
             requestAnimationFrame(tick);
         });
-    }
-
-    async function pool(tasks, run) {
-        let i = 0;
-        await Promise.all(agents.map(async (a, k) => {
-            await wait(k * 90);
-            while (!skipped && i < tasks.length) {
-                await run(a, tasks[i++]);
-                await wait(rand(10, 50));
-            }
-        }));
     }
 
     // ─── Units ──────────────────────────────────────────────────────
@@ -139,15 +128,13 @@
     hud.id = 'bi-hud';
     hud.innerHTML =
         '<div class="bi-log"><div class="bi-log-head"><span>build · azekyo.com</span><span class="bi-time">0.0s</span></div>' +
-        '<div class="bi-log-lines"></div><div class="bi-progress"><i></i></div></div>' +
-        '<button class="bi-skip" type="button">skip intro ⏭</button>';
+        '<div class="bi-log-lines"></div><div class="bi-progress"><i></i></div></div>';
     document.body.appendChild(hud);
     const logLines = hud.querySelector('.bi-log-lines');
     const progressBar = hud.querySelector('.bi-progress i');
     const timeEl = hud.querySelector('.bi-time');
-    const skipBtn = hud.querySelector('.bi-skip');
 
-    root.classList.add('bi-ready', 'bi-intro');
+    root.classList.add('bi-ready');
 
     // ─── Log ────────────────────────────────────────────────────────
     function log(html, cls) {
@@ -172,7 +159,7 @@
         el.innerHTML = ARROW + `<div class="bi-cur-label"><span class="bi-cur-name" style="background:${a.color}">${a.name}</span>` +
             '<span class="bi-cur-status"></span></div>';
         layer.appendChild(el);
-        return { ...a, el, status: el.querySelector('.bi-cur-status'), x: -60, y: 0, present: false, moveId: 0 };
+        return { ...a, el, status: el.querySelector('.bi-cur-status'), x: -60, y: 0, present: false, moveId: 0, nextDur: 0, leaveTimer: 0 };
     });
 
     function place(a, x, y) {
@@ -187,7 +174,8 @@
         const id = ++a.moveId;
         const sx = a.x, sy = a.y;
         const dist = Math.hypot(tx - sx, ty - sy);
-        dur = dur || clamp(dist * 0.5, 150, 380);
+        dur = dur || a.nextDur || clamp(dist * 0.5, 150, 380);
+        a.nextDur = 0;
         const bend = rand(-0.25, 0.25) * dist;
         const cx = (sx + tx) / 2 + (ty - sy) / (dist || 1) * bend;
         const cy = (sy + ty) / 2 - (tx - sx) / (dist || 1) * bend;
@@ -208,27 +196,20 @@
         setTimeout(() => r.remove(), 700);
     }
 
-    // Fly in from the screen edges around the current scroll position.
-    async function arrive() {
-        const todo = agents.filter(a => !a.present);
-        await Promise.all(todo.map((a, i) => {
-            a.present = true;
-            const k = agents.indexOf(a);
-            const edge = [[-40, 0.3], [innerWidth + 40, 0.2], [innerWidth * 0.4, 1.05], [innerWidth + 40, 0.8]][k];
-            place(a, scrollX + edge[0], scrollY + innerHeight * edge[1]);
-            a.el.style.opacity = '1';
-            return wait(i * 70).then(() =>
-                move(a, scrollX + innerWidth * rand(0.25, 0.75), scrollY + innerHeight * rand(0.25, 0.6), 480));
-        }));
+    // Fly in from a screen edge (around the current scroll position) when picking up work.
+    function arriveOne(a) {
+        a.present = true;
+        const edge = [[-40, 0.3], [innerWidth + 40, 0.2], [innerWidth * 0.4, 1.05], [innerWidth + 40, 0.8]][agents.indexOf(a)];
+        place(a, scrollX + edge[0], scrollY + innerHeight * edge[1]);
+        a.el.style.opacity = '1';
+        a.nextDur = 520;
     }
 
-    function leave() {
-        return Promise.all(agents.filter(a => a.present).map((a, i) => wait(i * 60).then(() => {
-            a.present = false;
-            a.el.style.opacity = '0';
-            setStatus(a, '');
-            return move(a, a.x + rand(-80, 80), a.y + rand(40, 120), 500);
-        })));
+    function leaveOne(a) {
+        a.present = false;
+        a.el.style.opacity = '0';
+        setStatus(a, '');
+        move(a, a.x + rand(-80, 80), a.y + rand(40, 120), 500);
     }
 
     // ─── Scaffold ───────────────────────────────────────────────────
@@ -326,44 +307,120 @@
         setStatus(a, '');
     }
 
-    // ─── Build a set of units: scaffold → write → style ─────────────
-    async function build(list, intro) {
-        const boxes = list.filter(u => u.matches(BOX));
-        const texts = list.flatMap(u => u.matches(TEXT) ? [u] : [...u.querySelectorAll(TEXT)]);
+    // ─── Work queue ─────────────────────────────────────────────────
+    // One shared queue for the whole visit. Units join it the moment they scroll into view,
+    // even mid-intro. Agents always take the earliest stage first (draw → write → style →
+    // hover), so newly visible boxes get scaffolded straight away and the build never pauses
+    // between "batches". Few tasks → only the first agent or two to wake pick them up.
+    const STAGE = { draw: 0, type: 1, paint: 2, hover: 3 };
+    const queue = [];
+    const firstSet = new Set();
+    const said = new Set();
+    let seq = 0, busy = 0, idleTimer = 0, signals = [];
 
-        if (!intro) {
+    const once = (key, fn) => { if (!said.has(key)) { said.add(key); fn(); } };
+    const notify = () => signals.splice(0).forEach(f => f());
+    const nextSignal = () => new Promise(res => { if (skipped) return res(); signals.push(res); });
+
+    function push(stage, unit, run, ready, done) {
+        queue.push({ stage, order: seq++, unit, run, ready, done });
+    }
+
+    function takeTask() {
+        let best = -1;
+        queue.forEach((t, i) => {
+            if (!t.ready()) return;
+            const b = queue[best];
+            if (!b || t.stage < b.stage || (t.stage === b.stage && t.order < b.order)) best = i;
+        });
+        return best < 0 ? null : queue.splice(best, 1)[0];
+    }
+
+    function enqueue(list, fromScroll) {
+        if (!list.length) return;
+        list.forEach(u => {
+            pending.delete(u);
+            const isBox = u.matches(BOX);
+            const texts = u.matches(TEXT) ? [u] : [...u.querySelectorAll(TEXT)];
+            const st = { drawn: !isBox, typesLeft: texts.length };
+            if (isBox) push(STAGE.draw, u, a => draw(a, u), () => true, () => { st.drawn = true; });
+            texts.forEach(t => push(STAGE.type, u, a => type(a, t), () => st.drawn, () => {
+                if (--st.typesLeft) return;
+                u.querySelectorAll('.bi-ch').forEach(c => c.classList.add('on'));
+                if (!isBox) unitStyled(u);
+            }));
+            if (isBox) push(STAGE.paint, u, a => paint(a, u), () => st.drawn && !st.typesLeft, () => unitStyled(u));
+        });
+        if (fromScroll) {
             const where = [...new Set(list.map(u => {
-                const s = u.closest('section, header, footer');
-                return s ? '.' + s.classList[0] : 'page';
+                const sec = u.closest('section, header, footer');
+                return sec ? '.' + sec.classList[0] : 'page';
             }))].join(' ');
             log(`● scroll → building ${where}`, 'phase');
         }
+        clearTimeout(idleTimer);
+        hud.classList.remove('idle');
+        notify();
+    }
 
-        await pool(boxes, draw);
-        if (skipped) return;
+    // A unit is finished: let its wireframe → glass transition play out, then hand it back.
+    function unitStyled(u) {
+        u.classList.add('bi-styled');
+        u.querySelectorAll('.bi-ch').forEach(c => c.classList.add('on'));
+        setTimeout(() => handBack(u), 900);
+        if (firstSet.delete(u) && !firstSet.size) firstViewBuilt();
+    }
 
-        if (intro) log('● writing content', 'phase');
-        await pool(texts, type);
-        if (skipped) return;
-        list.forEach(u => u.querySelectorAll('.bi-ch').forEach(c => c.classList.add('on')));
+    function firstViewBuilt() {
+        log(`✓ viewport built in ${secs()}` + (pending.size ? ' · scroll for more' : ''), 'ok');
+        const demo = units.filter(u => u.matches('.link-plate, .repo-card, .article-card') && inView(u)).slice(0, agents.length);
+        demo.forEach(u => push(STAGE.hover, u, a => hover(a, u), () => true));
+        notify();
+    }
 
-        if (intro) {
+    function runTask(a, t) {
+        if (t.stage === STAGE.type) once('type', () => log('● writing content', 'phase'));
+        if (t.stage === STAGE.paint) once('paint', () => {
             log('● applying design tokens', 'phase');
             canvas.classList.add('gone');
             layer.querySelectorAll('.bi-guide').forEach(g => g.classList.add('off'));
-        }
-        await pool(boxes, paint);
-        if (skipped) return;
-        list.filter(u => !u.matches(BOX)).forEach(u => u.classList.add('bi-styled'));
+            setTimeout(() => canvas.remove(), 1500);
+        });
+        if (t.stage === STAGE.hover) once('hover', () => log('● wiring interactions', 'phase'));
+        return t.run(a);
+    }
 
-        if (intro) {
-            log('● wiring interactions', 'phase');
-            await pool(boxes.filter(b => b.matches('.link-plate, .repo-card, .article-card')).slice(0, agents.length), hover);
+    function idleSoon() {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => { if (!busy && !queue.length && !skipped) hud.classList.add('idle'); }, 1600);
+    }
+
+    async function worker(a, k) {
+        await wait(k * 90);
+        while (!skipped) {
+            const task = takeTask();
+            if (!task) {
+                // Nothing left at all → wander off after a moment. Work still blocked on
+                // another agent → stay around.
+                if (!queue.length) {
+                    if (a.present && !a.leaveTimer) a.leaveTimer = setTimeout(() => { a.leaveTimer = 0; leaveOne(a); }, 600);
+                    if (!busy) idleSoon();
+                }
+                await nextSignal();
+                await wait(k * 90);
+                continue;
+            }
+            clearTimeout(a.leaveTimer);
+            a.leaveTimer = 0;
+            if (!a.present) arriveOne(a);
+            busy++;
+            await runTask(a, task);
+            busy--;
             if (skipped) return;
+            if (task.done) task.done();
+            notify();
+            await wait(rand(10, 50));
         }
-
-        // Let the wireframe → glass transitions finish before handing the units back.
-        setTimeout(() => list.forEach(handBack), intro ? 0 : 900);
     }
 
     // ─── Hand a unit back to the real page, byte-for-byte ───────────
@@ -389,8 +446,8 @@
         }
     }
 
-    // ─── Opening build: only what is on screen ──────────────────────
-    async function intro() {
+    // ─── Start: what is on screen now; the rest joins as it scrolls in ─
+    function start() {
         log('● scaffolding layout', 'phase');
         const pr = page.getBoundingClientRect();
         const pad = parseFloat(getComputedStyle(page).paddingLeft);
@@ -401,96 +458,51 @@
             layer.appendChild(g);
             requestAnimationFrame(() => requestAnimationFrame(() => g.classList.add('on')));
         });
-
-        await arrive();
-        if (skipped) return;
-
-        const first = units.filter(inView);
-        first.forEach(u => pending.delete(u));
-        await build(first, true);
-        if (skipped) return;
-
-        if (pending.size) log(`✓ viewport built in ${secs()} · scroll for more`, 'ok');
-        root.classList.remove('bi-intro');
-        skipBtn.textContent = 'build all ⏭';
-        removeEventListener('click', skipIntro, true);
-        setTimeout(() => canvas.remove(), 1500);
-
-        await leave();
-        if (skipped) return;
-        scrollMode = true;
-        idleSoon();
-        runBatches();
-    }
-
-    // ─── Scroll builds ──────────────────────────────────────────────
-    let scrollMode = false, building = false, idleTimer = 0;
-
-    function idleSoon() {
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => { if (!building && !skipped) hud.classList.add('idle'); }, 1600);
-    }
-
-    async function runBatches() {
-        if (!scrollMode || building || skipped) return;
-        const batch = [...pending].filter(inView);
-        if (!batch.length) return;
-        building = true;
-        clearTimeout(idleTimer);
-        hud.classList.remove('idle');
-        batch.forEach(u => pending.delete(u));
-        await arrive();
-        await build(batch, false);
-        building = false;
-        if (skipped) return;
-        if ([...pending].some(inView)) return runBatches();
-        setTimeout(() => { if (!building && !skipped) leave(); }, 500);
-        idleSoon();
+        const firstUnits = units.filter(inView);
+        firstUnits.forEach(u => firstSet.add(u));
+        enqueue(firstUnits, false);
+        agents.forEach(worker);
     }
 
     let scrollQueued = false;
     function onScroll() {
-        if (scrollQueued) return;
+        if (scrollQueued || skipped) return;
         scrollQueued = true;
-        requestAnimationFrame(() => { scrollQueued = false; runBatches(); });
+        requestAnimationFrame(() => {
+            scrollQueued = false;
+            if (!skipped) enqueue([...pending].filter(inView), true);
+        });
     }
 
     function onResize() { sizeLayer(); onScroll(); }
 
-    // ─── Finish everything now ──────────────────────────────────────
+    // ─── Tear down once every unit is handed back ──────────────────────────────────────
     function finish() {
         if (finished) return;
         finished = true;
         skipped = true;
         wakers.forEach(w => w());
+        notify();
         clearInterval(clock);
         clearTimeout(idleTimer);
+        agents.forEach(a => clearTimeout(a.leaveTimer));
 
         [...live].forEach(handBack);
         root.classList.add('bi-done');
-        root.classList.remove('bi', 'bi-ready', 'bi-intro');
+        root.classList.remove('bi', 'bi-ready');
 
         canvas.classList.add('gone');
         layer.classList.add('gone');
         hud.classList.add('gone');
         setTimeout(() => { canvas.remove(); layer.remove(); hud.remove(); }, 1500);
 
-        removeEventListener('click', skipIntro, true);
-        removeEventListener('keydown', onKey, true);
         removeEventListener('scroll', onScroll);
         removeEventListener('resize', onResize);
     }
 
-    // During the opening build any click or key skips; after it, only Esc or the button,
-    // so scrolling and clicking links keep working.
-    function skipIntro() { finish(); }
-    function onKey(e) { if (root.classList.contains('bi-intro') || e.key === 'Escape') finish(); }
-
-    addEventListener('click', skipIntro, true);
-    addEventListener('keydown', onKey, true);
+    // No skip: the build always plays. Each part becomes clickable as soon as it is styled.
     addEventListener('scroll', onScroll, { passive: true });
     addEventListener('resize', onResize);
-    skipBtn.addEventListener('click', finish);
 
-    intro();
+    start();
 })();

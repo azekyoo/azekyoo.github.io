@@ -11,10 +11,8 @@
 html.bi:not(.bi-ready) body { background: #f7f6fb; }
 html.bi:not(.bi-ready) .page { visibility: hidden; }
 
-/* No interaction during the opening build (a click skips instead), and none
-   on a unit that is still being built. */
-html.bi-intro .page,
-html.bi .bi-z { pointer-events: none; }
+/* A unit can't be clicked or hovered until the agents have styled it. */
+html.bi .bi-z:not(.bi-styled) { pointer-events: none; }
 
 /* The page's own entrance animations are replaced by the build. bi-done stays on
    after the intro so they don't replay once it ends. */
@@ -104,7 +102,7 @@ html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
 
 /* ─── Layers ──────────────────────────────────────────────────────── */
 /* #bi-layer sits in document coordinates (cursors, tags, guides scroll with the
-   page); #bi-hud is fixed to the screen (log, skip). */
+   page); #bi-hud is fixed to the screen (log). */
 #bi-layer,
 #bi-hud {
     pointer-events: none;
@@ -293,36 +291,17 @@ html.bi .bi-ch.caret { box-shadow: 2px 0 0 var(--c, #7c5cff); }
     transition: width 0.4s ease;
 }
 
-.bi-skip {
-    position: absolute;
-    right: 16px;
-    bottom: 16px;
-    padding: 6px 11px;
-    border-radius: 999px;
-    font: inherit;
-    font-size: 10.5px;
-    color: rgba(35, 38, 46, 0.7);
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(70, 60, 120, 0.18);
-    pointer-events: auto;
-    cursor: pointer;
-}
+/* Between scroll builds the log tucks away. */
+.bi-log { transition: opacity 0.45s ease, transform 0.45s ease; }
 
-.bi-skip:hover { color: #23262e; background: #fff; }
-
-/* Between scroll builds the log and skip button tuck away. */
-.bi-log,
-.bi-skip { transition: opacity 0.45s ease, transform 0.45s ease; }
-
-#bi-hud.idle .bi-log,
-#bi-hud.idle .bi-skip {
+#bi-hud.idle .bi-log {
     opacity: 0;
     transform: translateY(10px);
     pointer-events: none;
 }
 
 @media screen and (max-width: 760px) {
-    .bi-log { width: auto; right: 16px; bottom: 54px; font-size: 9.5px; }
+    .bi-log { width: auto; right: 16px; font-size: 9.5px; }
     .bi-log-lines { height: calc(1.6em * 4); }
     .bi-cur-status { display: none; }
 }
